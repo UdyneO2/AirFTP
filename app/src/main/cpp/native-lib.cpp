@@ -151,25 +151,23 @@ std::vector<unsigned char> g_fontReg, g_fontBold;
 
 ImVec4 rgb(int r, int g, int b, float a = 1.f) { return ImVec4(r / 255.f, g / 255.f, b / 255.f, a); }
 
-constexpr int kAccentR = 0, kAccentG = 120, kAccentB = 215;
-
 ImVec4 mixc(const ImVec4& a, const ImVec4& b, float t) {
     return ImVec4(a.x * t + b.x * (1.f - t), a.y * t + b.y * (1.f - t), a.z * t + b.z * (1.f - t), 1.f);
 }
 
 void applyTheme(bool dark) {
     ImVec4* c = ImGui::GetStyle().Colors;
-    const ImVec4 accent = rgb(kAccentR, kAccentG, kAccentB);
-    ImVec4 bg, surface, text, muted, border, title;
+    ImVec4 bg, surface, text, muted, border, accent;
     if (!dark) {
-        bg = rgb(243, 243, 243); surface = rgb(255, 255, 255); text = rgb(27, 27, 27); muted = rgb(77, 77, 77);
-        border = rgb(208, 208, 208); title = accent;
-        g_pal.ok = rgb(16, 124, 16); g_pal.warn = rgb(196, 89, 17); g_pal.err = rgb(164, 38, 44);
+        bg = rgb(242, 242, 247); surface = rgb(255, 255, 255); text = rgb(0, 0, 0); muted = rgb(110, 110, 115);
+        border = rgb(216, 216, 220); accent = rgb(0, 122, 255);
+        g_pal.ok = rgb(36, 138, 61); g_pal.warn = rgb(180, 85, 0); g_pal.err = rgb(215, 0, 21);
     } else {
-        bg = rgb(31, 31, 31); surface = rgb(43, 43, 43); text = rgb(243, 243, 243); muted = rgb(200, 200, 200);
-        border = rgb(69, 69, 69); title = rgb(20, 20, 20);
-        g_pal.ok = rgb(108, 203, 95); g_pal.warn = rgb(252, 185, 90); g_pal.err = rgb(255, 180, 171);
+        bg = rgb(0, 0, 0); surface = rgb(28, 28, 30); text = rgb(255, 255, 255); muted = rgb(152, 152, 159);
+        border = rgb(56, 56, 58); accent = rgb(10, 132, 255);
+        g_pal.ok = rgb(48, 209, 88); g_pal.warn = rgb(255, 159, 10); g_pal.err = rgb(255, 105, 97);
     }
+    const ImVec4 title = bg;
     const ImVec4 hover = bg;
     const ImVec4 press = mixc(border, bg, 0.6f);
     const ImVec4 sel = mixc(accent, bg, 0.12f), selH = mixc(accent, bg, 0.06f);
@@ -1560,134 +1558,125 @@ std::string fmTabLabel(const TabDef& t, bool live) {
     return k == std::string::npos ? p : p.substr(k + 1);
 }
 
-void drawTabBar(float y, float h) {
-    const float d = g_density;
-    const ImGuiIO& io = ImGui::GetIO();
-    const float W = io.DisplaySize.x;
-    const int n = (int)g_tabs.size();
-    const float margin = 6.f * d, padL = 12.f * d, icon = 18.f * d, gap = 7.f * d, closeW = 26.f * d, plusW = 40.f * d;
-    const float iconOnlyW = icon + 20.f * d, minOpen = padL + icon + 10.f * d;
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddRectFilled(ImVec2(0, y), ImVec2(W, y + h), ImGui::ColorConvertFloat4ToU32(g_pal.title));
+ImU32 alphaU(ImU32 c, int a) { return (c & 0x00FFFFFFu) | ((ImU32)a << 24); }
 
-    auto labelOf = [&](int i) -> std::string {
-        switch (g_tabs[i].kind) {
-            case 0: return fmTabLabel(g_tabs[i], i == g_cur);
-            case 1: return "Wi-Fi";
-            case 2: return "FTP";
-            case 3: return T("Pengaturan");
-            default: return "Log";
-        }
-    };
-    auto iconOf = [&](int k) { return k == 0 ? IC_FOLDER : k == 1 ? IC_WIFI : k == 2 ? IC_PHONE : k == 3 ? IC_GEAR : IC_LOG; };
-    auto showClose = [&](int i) { return i == g_cur && !g_tabs[i].closed && (g_tabs[i].kind != 0 || fmCount() > 1); };
-
-    if (g_bold) ImGui::PushFont(g_bold);
-    std::vector<float> nat(n), w(n);
-    std::vector<std::string> lab(n);
-    float fixed = 0;
-    for (int i = 0; i < n; i++) {
-        lab[i] = labelOf(i);
-        if (g_tabs[i].closed) { w[i] = iconOnlyW; fixed += w[i]; }
-        else { nat[i] = padL + icon + gap + ImGui::CalcTextSize(lab[i].c_str()).x + (showClose(i) ? closeW : 12.f * d); }
-    }
-    if (g_bold) ImGui::PopFont();
-    float avail = W - margin * 2 - plusW - fixed;
-
-    std::vector<int> pend;
-    for (int i = 0; i < n; i++) {
-        if (g_tabs[i].closed) continue;
-        if (i == g_cur) {
-            const float minActive = padL + icon + gap + 46.f * d + closeW;
-            w[i] = std::min(nat[i], std::max(minActive, avail * 0.4f));
-            avail -= w[i];
-        } else pend.push_back(i);
-    }
-    for (int pass = 0; pass < 4 && !pend.empty(); pass++) {
-        const float share = avail / (float)pend.size();
-        std::vector<int> rest;
-        bool any = false;
-        for (int i : pend) {
-            if (nat[i] <= share) { w[i] = nat[i]; avail -= nat[i]; any = true; } else rest.push_back(i);
-        }
-        pend = rest;
-        if (!any) break;
-    }
-    if (!pend.empty()) { const float share = std::max(minOpen, avail / (float)pend.size()); for (int i : pend) w[i] = share; }
-
-    float x = margin;
-    for (int i = 0; i < n; i++) {
-        const bool on = i == g_cur && !g_tabs[i].closed;
-        const float tx = x, tw = w[i], top = y + 6.f * d;
-        const bool hasX = showClose(i);
-        if (on) dl->AddRectFilled(ImVec2(tx, top), ImVec2(tx + tw, y + h), g_pal.bgU, 8.f * d, ImDrawFlags_RoundCornersTop);
-        const ImU32 col = on ? g_pal.text : IM_COL32(255, 255, 255, 225);
-        ImGui::PushID(i);
-        ImGui::SetCursorScreenPos(ImVec2(tx, top));
-        if (ImGui::InvisibleButton("##tab", ImVec2(tw - (hasX ? closeW : 0.f), y + h - top))) selectTabIdx(i);
-        if (hasX) {
-            ImGui::SetCursorScreenPos(ImVec2(tx + tw - closeW, top));
-            if (ImGui::InvisibleButton("##close", ImVec2(closeW, y + h - top))) closeTab(i);
-            const ImVec2 c(tx + tw - closeW * 0.5f - 2.f * d, top + (y + h - top) * 0.5f);
-            const float r = 4.5f * d;
-            dl->AddLine(ImVec2(c.x - r, c.y - r), ImVec2(c.x + r, c.y + r), g_pal.text, 1.6f * d);
-            dl->AddLine(ImVec2(c.x - r, c.y + r), ImVec2(c.x + r, c.y - r), g_pal.text, 1.6f * d);
-        }
-        ImGui::PopID();
-        const float cy = top + (y + h - top) * 0.5f;
-        if (g_tabs[i].closed) {
-            drawIcon(dl, (Icon)iconOf(g_tabs[i].kind), ImVec2(tx + tw * 0.5f, cy), icon, col);
-        } else {
-            const float textX = tx + padL + icon + gap;
-            const float textR = tx + tw - (hasX ? closeW : 6.f * d);
-            const bool room = textR - textX > 14.f * d;
-            drawIcon(dl, (Icon)iconOf(g_tabs[i].kind), ImVec2(room ? tx + padL + icon * 0.5f : tx + tw * 0.5f, cy), icon, col);
-            if (room) {
-                const float fs = ImGui::GetFontSize();
-                ImFont* f = g_bold ? g_bold : ImGui::GetFont();
-                const ImVec4 clip(textX, top, textR, y + h);
-                dl->AddText(f, fs, ImVec2(textX, cy - fs * 0.5f), col, lab[i].c_str(), nullptr, 0.f, &clip);
-            }
-        }
-        x += tw;
-    }
-
-    {
-        ImGui::SetCursorScreenPos(ImVec2(x, y + 6.f * d));
-        ImGui::PushID("plus");
-        const bool can = fmCount() < kMaxFm;
-        if (ImGui::InvisibleButton("##new", ImVec2(plusW, h - 6.f * d)) && can) newFmTab();
-        ImGui::PopID();
-        const ImVec2 c(x + plusW * 0.5f, y + 6.f * d + (h - 6.f * d) * 0.5f);
-        const float r = 6.f * d;
-        const ImU32 pc = IM_COL32(255, 255, 255, can ? 235 : 90);
-        dl->AddLine(ImVec2(c.x - r, c.y), ImVec2(c.x + r, c.y), pc, 1.8f * d);
-        dl->AddLine(ImVec2(c.x, c.y - r), ImVec2(c.x, c.y + r), pc, 1.8f * d);
-    }
+void circleButton(ImDrawList* dl, ImVec2 c, float r, bool pressed) {
+    for (int i = 3; i >= 1; i--) dl->AddCircleFilled(ImVec2(c.x, c.y + i * 0.8f * g_density), r + i * 0.7f * g_density, IM_COL32(0, 0, 0, 7), 32);
+    dl->AddCircleFilled(c, r, pressed ? g_pal.border : g_pal.surfaceU, 32);
+    dl->AddCircle(c, r, g_pal.border, 32, 1.f);
 }
 
-void drawFooter(float y, float h) {
+bool headerButton(const char* id, ImVec2 c, float r, int glyph) {
+    ImGui::SetCursorScreenPos(ImVec2(c.x - r, c.y - r));
+    const bool hit = ImGui::InvisibleButton(id, ImVec2(r * 2, r * 2));
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    circleButton(dl, c, r, ImGui::IsItemActive());
+    const float u = r * 0.36f, th = 2.f * g_density;
+    if (glyph == 0) {
+        ImVec2 p[3] = {ImVec2(c.x + u * 0.45f, c.y - u), ImVec2(c.x - u * 0.55f, c.y), ImVec2(c.x + u * 0.45f, c.y + u)};
+        dl->AddPolyline(p, 3, g_pal.text, 0, th);
+    } else {
+        for (int i = -1; i <= 1; i++) dl->AddCircleFilled(ImVec2(c.x + i * u * 1.1f, c.y), 1.7f * g_density, g_pal.text);
+    }
+    return hit;
+}
+
+bool fmAtRoot() { return S.fmPath == "/" || S.fmPath == "/sdcard" || S.fmPath == "/storage/emulated/0" || S.fmPath.empty(); }
+
+void drawHeader(float h) {
     const float d = g_density;
     const ImGuiIO& io = ImGui::GetIO();
+    const float W = io.DisplaySize.x, r = 20.f * d, m = 12.f * d + r, cy = h * 0.5f;
+    std::string title;
+    switch (S.curTab) {
+        case 0: {
+            const int n = countSel(S.fm);
+            if (n > 0) { char b[64]; snprintf(b, sizeof b, T("%d dipilih"), n); title = b; }
+            else title = fmTabLabel(g_tabs[g_cur], true);
+            break;
+        }
+        case 1: title = "Wi-Fi"; break;
+        case 2: title = "FTP"; break;
+        case 3: title = T("Pengaturan"); break;
+        default: title = "Log"; break;
+    }
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddRectFilled(ImVec2(0, y), ImVec2(io.DisplaySize.x, y + h), g_pal.surfaceU);
-    dl->AddLine(ImVec2(0, y + 0.5f), ImVec2(io.DisplaySize.x, y + 0.5f), g_pal.border);
-    std::string label;
+    const float fs = ImGui::GetFontSize() * 1.15f;
+    ImFont* bf = g_bold ? g_bold : ImGui::GetFont();
+    const float tw = bf->CalcTextSizeA(fs, FLT_MAX, 0.f, title.c_str()).x;
+    const float maxW = W - 2 * (m + r) - 8.f * d;
+    const ImVec4 clip(W * 0.5f - maxW * 0.5f, 0, W * 0.5f + maxW * 0.5f, h);
+    dl->AddText(bf, fs, ImVec2(W * 0.5f - std::min(tw, maxW) * 0.5f, cy - fs * 0.5f), g_pal.text, title.c_str(), nullptr, 0.f, &clip);
+
     if (S.curTab == 0) {
-        const int n = countSel(S.fm);
-        if (n > 0) {
-            char b[96];
-            snprintf(b, sizeof b, T("%d dipilih (%s)"), n, fmtSize((double)sizeSel(S.fm)).c_str());
-            label = b;
-        } else label = S.fmPath;
-        if (S.clipCount) label += std::string("  |  ") + (S.clipCut ? T("Clipboard: potong") : T("Clipboard: salin"));
-    } else if (S.curTab == 1) {
-        label = std::string(T("Terima")) + " " + (S.listening ? T("nyala") : T("mati"));
-    } else label = S.shizuku ? T("Shizuku terhubung") : T("Shizuku terputus");
-    const float fs = ImGui::GetFontSize() * 0.92f;
-    const ImVec4 clip(12.f * d, y, io.DisplaySize.x - 12.f * d, y + h);
-    dl->AddText(ImGui::GetFont(), fs, ImVec2(12.f * d, y + (h - fs) * 0.5f), ImGui::ColorConvertFloat4ToU32(g_pal.dim), label.c_str(),
-                nullptr, 0.f, &clip);
+        if (!fmAtRoot() && headerButton("##hup", ImVec2(m, cy), r, 0)) act("FM|UP");
+        if (headerButton("##hmore", ImVec2(W - m, cy), r, 1)) ImGui::OpenPopup("hdr_menu");
+    }
+    ImGui::SetNextWindowPos(ImVec2(W - 12.f * d, cy + r + 4.f * d), ImGuiCond_Always, ImVec2(1.f, 0.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f * d, 6.f * d));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 2.f * d));
+    if (ImGui::BeginPopup("hdr_menu")) {
+        const float w = 210.f * d;
+        auto item = [&](const char* label, bool on = true, bool mark = false) {
+            ImGui::BeginDisabled(!on);
+            const bool hit = ImGui::Selectable(label, mark, 0, ImVec2(w, 40.f * d));
+            ImGui::EndDisabled();
+            return hit;
+        };
+        if (item(T("Tab baru"), fmCount() < kMaxFm)) newFmTab();
+        if (item(T("Tutup tab ini"), fmCount() > 1)) closeTab(g_cur);
+        if (fmCount() > 1) {
+            ImGui::Separator();
+            for (int i = 0; i < (int)g_tabs.size(); i++) {
+                if (g_tabs[i].kind != 0) continue;
+                std::string l = fmTabLabel(g_tabs[i], i == g_cur) + "##ft" + std::to_string(i);
+                if (item(l.c_str(), true, i == g_cur)) selectTabIdx(i);
+            }
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleVar(2);
+}
+
+void drawBottomBar(float y, float h) {
+    const float d = g_density;
+    const ImGuiIO& io = ImGui::GetIO();
+    const float m = 12.f * d, W = io.DisplaySize.x - 2 * m;
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const ImVec2 a(m, y), b(m + W, y + h);
+    for (int i = 4; i >= 1; i--) dl->AddRectFilled(ImVec2(a.x - i * d, a.y + i * 1.5f * d), ImVec2(b.x + i * d, b.y + i * 1.5f * d), IM_COL32(0, 0, 0, 6), h * 0.5f + i * d);
+    dl->AddRectFilled(a, b, alphaU(g_pal.surfaceU, 246), h * 0.5f);
+    dl->AddRect(a, b, g_pal.border, h * 0.5f, 0, 1.f);
+    struct Tab { const char* label; Icon icon; };
+    const Tab tabs[5] = {{T("Lokal"), IC_FOLDER}, {"Wi-Fi", IC_WIFI}, {"FTP", IC_PHONE}, {T("Pengaturan"), IC_GEAR}, {"Log", IC_LOG}};
+    const float pad = 5.f * d, cw = (W - 2 * pad) / 5.f;
+    const float isz = 22.f * d, fs = ImGui::GetFontSize() * 0.68f;
+    for (int i = 0; i < 5; i++) {
+        const float x0 = a.x + pad + i * cw;
+        const bool on = S.curTab == i;
+        ImGui::SetCursorScreenPos(ImVec2(x0, y + pad));
+        ImGui::PushID(i);
+        if (ImGui::InvisibleButton("##bt", ImVec2(cw, h - 2 * pad))) {
+            if (i != S.curTab || S.apkOpen) S.tabReq = i;
+        }
+        ImGui::PopID();
+        const ImVec4 acc = g_pal.accent;
+        if (on) dl->AddRectFilled(ImVec2(x0 + 2.f * d, y + pad), ImVec2(x0 + cw - 2.f * d, b.y - pad),
+                                  ImGui::ColorConvertFloat4ToU32(ImVec4(acc.x, acc.y, acc.z, 0.14f)), (h - 2 * pad) * 0.5f);
+        const ImU32 col = on ? ImGui::ColorConvertFloat4ToU32(acc) : ImGui::ColorConvertFloat4ToU32(g_pal.dim);
+        drawIcon(dl, tabs[i].icon, ImVec2(x0 + cw * 0.5f, y + pad + 4.f * d + isz * 0.5f), isz, col);
+        ImFont* f = g_bold ? g_bold : ImGui::GetFont();
+        const float lw = f->CalcTextSizeA(fs, FLT_MAX, 0.f, tabs[i].label).x;
+        const ImVec4 clip(x0, y, x0 + cw, b.y);
+        dl->AddText(f, fs, ImVec2(x0 + (cw - std::min(lw, cw - 4.f * d)) * 0.5f, y + pad + 4.f * d + isz + 2.f * d), col, tabs[i].label, nullptr, 0.f, &clip);
+        if (i == 0 && fmCount() > 1) {
+            char nb[8]; snprintf(nb, sizeof nb, "%d", fmCount());
+            const ImVec2 c(x0 + cw * 0.5f + isz * 0.62f, y + pad + 4.f * d + 2.f * d);
+            dl->AddCircleFilled(c, 7.f * d, ImGui::ColorConvertFloat4ToU32(acc), 16);
+            const float nw = ImGui::GetFont()->CalcTextSizeA(fs * 0.9f, FLT_MAX, 0.f, nb).x;
+            dl->AddText(ImGui::GetFont(), fs * 0.9f, ImVec2(c.x - nw * 0.5f, c.y - fs * 0.45f), IM_COL32(255, 255, 255, 255), nb);
+        }
+    }
 }
 
 void drawUI() {
@@ -1703,23 +1692,7 @@ void drawUI() {
                  ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar(2);
 
-    const float barH = 48.f * d, tabH = 44.f * d, footH = 32.f * d;
-    {
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        dl->AddRectFilled(ImVec2(0, 0), ImVec2(io.DisplaySize.x, barH), ImGui::ColorConvertFloat4ToU32(g_pal.title));
-        const float fs = ImGui::GetFontSize();
-        const ImU32 white = IM_COL32(255, 255, 255, 255);
-        ImFont* bf = g_bold ? g_bold : ImGui::GetFont();
-        const float tsz = fs * 1.1f;
-        dl->AddText(bf, tsz, ImVec2(12.f * d, (barH - tsz) * 0.5f), white, "AirFTP");
-        const float nx = 12.f * d + bf->CalcTextSizeA(tsz, FLT_MAX, 0.f, "AirFTP").x + 12.f * d;
-        char ver[32];
-        snprintf(ver, sizeof ver, T("Versi %s"), kVersion[0] == 'v' ? kVersion + 1 : kVersion);
-        dl->AddText(ImGui::GetFont(), fs * 0.92f, ImVec2(nx, (barH - fs * 0.92f) * 0.5f), IM_COL32(255, 255, 255, 205), ver);
-        const char* st = S.shizuku ? T("Shizuku terhubung") : T("Shizuku terputus");
-        const float sw = ImGui::GetFont()->CalcTextSizeA(fs * 0.92f, FLT_MAX, 0.f, st).x;
-        dl->AddText(ImGui::GetFont(), fs * 0.92f, ImVec2(io.DisplaySize.x - sw - 12.f * d, (barH - fs * 0.92f) * 0.5f), white, st);
-    }
+    const float barH = 60.f * d, navH = 62.f * d, navM = 12.f * d;
 
     if (g_cur >= (int)g_tabs.size()) g_cur = 0;
     if (g_waitFrames > 0 && --g_waitFrames == 0) g_waitPath.clear();
@@ -1729,20 +1702,20 @@ void drawUI() {
     S.curTab = g_tabs[g_cur].kind;
 
     if (S.pvOpen) {
-        ImGui::SetCursorPosY(barH + 8.f * d);
+        ImGui::SetCursorPosY(10.f * d);
         drawPreview();
     } else if (S.bOpen) {
-        ImGui::SetCursorPosY(barH + 8.f * d);
+        ImGui::SetCursorPosY(10.f * d);
         drawBrowser();
     } else if (S.apkOpen) {
-        ImGui::SetCursorPosY(barH + 8.f * d);
+        ImGui::SetCursorPosY(10.f * d);
         drawApk();
     } else {
-        drawTabBar(barH, tabH);
-        const float bodyY = barH + tabH;
-        const float bodyH = io.DisplaySize.y - bodyY - footH;
+        drawHeader(barH);
+        const float bodyY = barH;
+        const float bodyH = io.DisplaySize.y - bodyY - navH - navM * 2;
         ImGui::SetCursorScreenPos(ImVec2(0, bodyY));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.f * d, 8.f * d));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.f * d, 6.f * d));
         ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 0.f);
         ImGui::BeginChild("##body", ImVec2(io.DisplaySize.x, bodyH), ImGuiChildFlags_AlwaysUseWindowPadding,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -1777,7 +1750,7 @@ void drawUI() {
                 break;
         }
         ImGui::EndChild();
-        drawFooter(io.DisplaySize.y - footH, footH);
+        drawBottomBar(io.DisplaySize.y - navH - navM, navH);
     }
     ImGui::End();
 }
@@ -1840,9 +1813,9 @@ JNIEXPORT void JNICALL Java_com_udyneos_airftp_Native_initGl(JNIEnv*, jclass, jf
         ImGui::StyleColorsLight();
         ImGuiStyle& st = ImGui::GetStyle();
 
-        st.WindowRounding = 4; st.FrameRounding = 4; st.ChildRounding = 4;
-        st.GrabRounding = 4; st.TabRounding = 4; st.ScrollbarRounding = 4; st.PopupRounding = 4;
-        st.FrameBorderSize = 1.f; st.ChildBorderSize = 1.f; st.WindowBorderSize = 0.f; st.TabBorderSize = 0.f;
+        st.WindowRounding = 4; st.FrameRounding = 10; st.ChildRounding = 14;
+        st.GrabRounding = 8; st.TabRounding = 8; st.ScrollbarRounding = 4; st.PopupRounding = 14;
+        st.FrameBorderSize = 1.f; st.ChildBorderSize = 0.f; st.WindowBorderSize = 0.f; st.TabBorderSize = 0.f;
         st.PopupBorderSize = 1.f;
         st.TabBarOverlineSize = 2.f;
         st.FramePadding = ImVec2(12, 9);
