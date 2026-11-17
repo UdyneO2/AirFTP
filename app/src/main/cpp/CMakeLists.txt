@@ -1,0 +1,24 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(airftp_native CXX)
+
+include(FetchContent)
+FetchContent_Declare(imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.91.5
+    GIT_SHALLOW TRUE)
+FetchContent_MakeAvailable(imgui)
+
+add_library(airftp SHARED
+    native-lib.cpp
+    i18n.cpp
+    qr.cpp
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
+
+target_include_directories(airftp PRIVATE ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+target_compile_definitions(airftp PRIVATE IMGUI_IMPL_OPENGL_ES3)
+target_link_libraries(airftp GLESv3 EGL android log)
+target_link_options(airftp PRIVATE -Wl,-z,max-page-size=16384)
