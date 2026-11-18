@@ -429,9 +429,10 @@ std::string lowerExt(const std::string& n) {
 void drawEntryIcon(ImDrawList* dl, ImVec2 p, float s, bool dir, const std::string& name) {
     const float r = s * 0.12f;
     if (dir) {
-        const ImU32 body = IM_COL32(255, 200, 70, 255), back = IM_COL32(232, 160, 20, 255);
-        dl->AddRectFilled(ImVec2(p.x, p.y + s * 0.1f), ImVec2(p.x + s * 0.48f, p.y + s * 0.4f), back, r);
-        dl->AddRectFilled(ImVec2(p.x, p.y + s * 0.26f), ImVec2(p.x + s, p.y + s * 0.88f), body, r);
+        const ImU32 back = IM_COL32(0, 132, 230, 255), mid = IM_COL32(30, 160, 250, 255), front = IM_COL32(72, 190, 255, 255);
+        dl->AddRectFilled(ImVec2(p.x, p.y + s * 0.1f), ImVec2(p.x + s * 0.46f, p.y + s * 0.4f), back, r * 1.4f);
+        dl->AddRectFilled(ImVec2(p.x, p.y + s * 0.2f), ImVec2(p.x + s, p.y + s * 0.86f), mid, r * 1.4f);
+        dl->AddRectFilledMultiColor(ImVec2(p.x, p.y + s * 0.32f), ImVec2(p.x + s, p.y + s * 0.74f), front, front, mid, mid);
         return;
     }
     const std::string e = lowerExt(name);
@@ -740,7 +741,7 @@ void fmContextMenu(bool busy) {
     }
     while (!it.empty() && it.back().sep) it.pop_back();
 
-    const float rowH = 34.f * d, w = 190.f * d, pad = 4.f * d;
+    const float rowH = 38.f * d, w = 206.f * d, pad = 6.f * d;
     float h = pad * 2 + (blankMenu ? 0.f : 24.f * d);
     for (auto& c : it) h += c.sep ? 5.f * d : rowH;
     const ImVec2 ds = ImGui::GetIO().DisplaySize;
@@ -753,8 +754,9 @@ void fmContextMenu(bool busy) {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.f, 0.5f));
     ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1.f);
+    ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 16.f * d);
     const bool open = ImGui::BeginPopup("fm_ctx");
-    ImGui::PopStyleVar(4);
+    ImGui::PopStyleVar(5);
     g_ctxOpen = open;
     if (!open) return;
     if (g_ctxClose.exchange(false) || busy || it.empty()) { ImGui::CloseCurrentPopup(); ImGui::EndPopup(); return; }
@@ -776,7 +778,11 @@ void fmContextMenu(bool busy) {
     for (auto& c : it) {
         if (c.sep) { ImGui::Dummy(ImVec2(0, 1.f * d)); ImGui::Separator(); ImGui::Dummy(ImVec2(0, 1.f * d)); continue; }
         std::string id = "  " + c.label + "##ctx" + std::to_string(k++);
-        if (ImGui::Selectable(id.c_str(), false, 0, ImVec2(0, rowH))) {
+        const bool danger = c.action.rfind("FM|DEL", 0) == 0;
+        if (danger) ImGui::PushStyleColor(ImGuiCol_Text, g_pal.err);
+        const bool picked = ImGui::Selectable(id.c_str(), false, 0, ImVec2(0, rowH));
+        if (danger) ImGui::PopStyleColor();
+        if (picked) {
             if (c.action == "FM|ALL") { for (auto& e : S.fm) e.sel = true; }
             else act(c.action);
             ImGui::CloseCurrentPopup();
@@ -787,12 +793,199 @@ void fmContextMenu(bool busy) {
     ImGui::EndPopup();
 }
 
+ImU32 alphaU(ImU32 c, int a);
+bool g_grid = false;
+std::vector<std::string> g_fmTabs{""};
+int g_fmCur = 0;
+std::string g_fmWait;
+int g_fmWaitFrames = 0;
+constexpr size_t kMaxFmTabs = 6;
+
+std::string pathLabel(std::string p) {
+    while (p.size() > 1 && p.back() == '/') p.pop_back();
+    if (p.empty() || p == "/sdcard" || p == "/storage/emulated/0") return T("Lokal");
+    const size_t k = p.rfind('/');
+    return k == std::string::npos ? p : p.substr(k + 1);
+}
+
+void fmTabSync() {
+    if (g_fmCur >= (int)g_fmTabs.size()) g_fmCur = 0;
+    if (g_fmWaitFrames > 0 && --g_fmWaitFrames == 0) g_fmWait.clear();
+    if (!g_fmWait.empty() && S.fmPath == g_fmWait) g_fmWait.clear();
+    if (g_fmWait.empty() && !S.fmPath.empty()) g_fmTabs[g_fmCur] = S.fmPath;
+}
+
+void fmGoTab(int i) {
+    g_fmCur = i;
+    if (g_fmTabs[i].empty()) g_fmTabs[i] = S.fmPath;
+    else if (g_fmTabs[i] != S.fmPath) { g_fmWait = g_fmTabs[i]; g_fmWaitFrames = 90; act("FM|GO|" + g_fmTabs[i]); }
+}
+
+void fmNewTab() {
+    if (g_fmTabs.size() >= kMaxFmTabs) return;
+    g_fmTabs.insert(g_fmTabs.begin() + g_fmCur + 1, S.fmPath);
+    g_fmCur++;
+    g_fmWait.clear();
+}
+
+void fmCloseTab() {
+    if (g_fmTabs.size() <= 1) return;
+    g_fmTabs.erase(g_fmTabs.begin() + g_fmCur);
+    if (g_fmCur >= (int)g_fmTabs.size()) g_fmCur = (int)g_fmTabs.size() - 1;
+    g_fmWait.clear();
+    fmGoTab(g_fmCur);
+}
+
+void tabChips() {
+    if (g_fmTabs.size() < 2) return;
+    const float d = g_density, h = 34.f * d, gap = 6.f * d;
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    const float W = ImGui::GetContentRegionAvail().x;
+    const int n = (int)g_fmTabs.size();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImFont* bf = g_bold ? g_bold : ImGui::GetFont();
+    const float fs = ImGui::GetFontSize() * 0.92f, xw = 24.f * d;
+    std::vector<float> nat(n), w(n);
+    for (int i = 0; i < n; i++)
+        nat[i] = 24.f * d + bf->CalcTextSizeA(fs, FLT_MAX, 0.f, pathLabel(g_fmTabs[i]).c_str()).x + (i == g_fmCur ? xw : 0.f);
+    float avail = W - gap * (n - 1);
+    std::vector<int> pend;
+    for (int i = 0; i < n; i++) pend.push_back(i);
+    for (int pass = 0; pass < 4 && !pend.empty(); pass++) {
+        const float share = avail / (float)pend.size();
+        std::vector<int> rest;
+        bool any = false;
+        for (int i : pend) { if (nat[i] <= share) { w[i] = nat[i]; avail -= nat[i]; any = true; } else rest.push_back(i); }
+        pend = rest;
+        if (!any) break;
+    }
+    for (int i : pend) w[i] = std::max(44.f * d, avail / (float)pend.size());
+    float x = p.x;
+    int closeReq = -1, goReq = -1;
+    for (int i = 0; i < n; i++) {
+        const bool on = i == g_fmCur;
+        const ImVec2 a(x, p.y), b(x + w[i], p.y + h);
+        ImGui::SetCursorScreenPos(a);
+        ImGui::PushID(i);
+        if (ImGui::InvisibleButton("##chip", ImVec2(w[i] - (on ? xw : 0.f), h))) goReq = i;
+        if (on) {
+            ImGui::SetCursorScreenPos(ImVec2(b.x - xw, p.y));
+            if (ImGui::InvisibleButton("##chipx", ImVec2(xw, h))) closeReq = i;
+        }
+        ImGui::PopID();
+        dl->AddRectFilled(a, b, on ? ImGui::ColorConvertFloat4ToU32(g_pal.accent) : g_pal.surfaceU, h * 0.5f);
+        if (!on) dl->AddRect(a, b, g_pal.border, h * 0.5f, 0, 1.f);
+        const ImU32 tc = on ? IM_COL32(255, 255, 255, 255) : g_pal.text;
+        const ImVec4 clip(a.x + 8.f * d, a.y, b.x - (on ? xw : 8.f * d), b.y);
+        dl->AddText(bf, fs, ImVec2(a.x + 12.f * d, a.y + (h - fs) * 0.5f), tc, pathLabel(g_fmTabs[i]).c_str(), nullptr, 0.f, &clip);
+        if (on) {
+            const ImVec2 c(b.x - xw * 0.5f - 1.f * d, a.y + h * 0.5f);
+            const float u = 3.5f * d;
+            dl->AddLine(ImVec2(c.x - u, c.y - u), ImVec2(c.x + u, c.y + u), tc, 1.6f * d);
+            dl->AddLine(ImVec2(c.x - u, c.y + u), ImVec2(c.x + u, c.y - u), tc, 1.6f * d);
+        }
+        x += w[i] + gap;
+    }
+    ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h + 8.f * d));
+    if (closeReq >= 0) fmCloseTab();
+    else if (goReq >= 0 && goReq != g_fmCur) fmGoTab(goReq);
+}
+
+int gridCell(int idx, Entry& e, ImVec2 a, float cw, float ch, bool showSel) {
+    const float d = g_density;
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImGui::SetCursorScreenPos(a);
+    ImGui::PushID(idx);
+    int r = ImGui::InvisibleButton("##cell", ImVec2(cw, ch)) ? 1 : 0;
+    const ImVec2 mp = ImGui::GetIO().MousePos;
+    const bool corner = mp.x < a.x + 36.f * d && mp.y < a.y + 36.f * d;
+    ImGui::PopID();
+    if (r == 1 && showSel && corner) r = 2;
+    if (e.sel) dl->AddRectFilled(ImVec2(a.x + 2.f * d, a.y + 2.f * d), ImVec2(a.x + cw - 2.f * d, a.y + ch - 2.f * d),
+                                  alphaU(ImGui::ColorConvertFloat4ToU32(g_pal.accent), 46), 12.f * d);
+    const float is = 58.f * d;
+    drawEntryIcon(dl, ImVec2(a.x + (cw - is) * 0.5f, a.y + 10.f * d), is, e.dir, e.name);
+    ImFont* f = ImGui::GetFont();
+    const float fs = ImGui::GetFontSize() * 0.86f, aw = cw - 10.f * d;
+    const char* b = e.name.c_str();
+    const char* end = b + e.name.size();
+    float ty = a.y + 10.f * d + is + 6.f * d;
+    const ImVec4 clip(a.x + 2.f * d, a.y, a.x + cw - 2.f * d, a.y + ch);
+    for (int line = 0; line < 2 && b < end; line++) {
+        const char* br = end;
+        if (f->CalcTextSizeA(fs, FLT_MAX, 0.f, b, end).x > aw) {
+            br = f->CalcWordWrapPositionA(fs / f->FontSize, b, end, aw);
+            if (br <= b) br = b + 1;
+        }
+        std::string l(b, br);
+        if (line == 1 && br < end) {
+            while (!l.empty() && f->CalcTextSizeA(fs, FLT_MAX, 0.f, (l + "...").c_str()).x > aw) l.pop_back();
+            l += "...";
+        }
+        const float lw = f->CalcTextSizeA(fs, FLT_MAX, 0.f, l.c_str()).x;
+        dl->AddText(f, fs, ImVec2(a.x + (cw - std::min(lw, aw)) * 0.5f, ty), g_pal.text, l.c_str(), nullptr, 0.f, &clip);
+        ty += fs + 1.f * d;
+        b = br;
+        while (b < end && *b == ' ') b++;
+    }
+    if (!e.dir) {
+        const std::string info = fmtSize((double)e.size);
+        const float iw = f->CalcTextSizeA(fs * 0.85f, FLT_MAX, 0.f, info.c_str()).x;
+        dl->AddText(f, fs * 0.85f, ImVec2(a.x + (cw - iw) * 0.5f, a.y + ch - fs - 2.f * d), ImGui::ColorConvertFloat4ToU32(g_pal.dim), info.c_str());
+    }
+    if (showSel) drawCheck(dl, ImVec2(a.x + 18.f * d, a.y + 18.f * d), 20.f * d, e.sel);
+    return r;
+}
+
+void actionBar(float y) {
+    const int nSel = countSel(S.fm);
+    if (S.mBusy || (nSel == 0 && S.clipCount == 0)) return;
+    const float d = g_density;
+    const ImGuiIO& io = ImGui::GetIO();
+    struct B { std::string label, action; bool danger; };
+    std::vector<B> bs;
+    const std::string sel = idxSel(S.fm);
+    if (nSel > 0) {
+        bs.push_back({T("Salin"), "FM|COPY|" + sel, false});
+        bs.push_back({T("Potong"), "FM|CUT|" + sel, false});
+        if (S.clipCount > 0) bs.push_back({T("Tempel"), "FM|PASTE", false});
+        bs.push_back({T("Kirim"), "FM|SEND|" + sel, false});
+        bs.push_back({T("Hapus"), "FM|DEL|" + sel, true});
+    } else {
+        char b[48];
+        snprintf(b, sizeof b, T("Tempel (%d)"), S.clipCount);
+        bs.push_back({b, "FM|PASTE", false});
+    }
+    const float h = 46.f * d, m = 12.f * d;
+    const float W = std::min(io.DisplaySize.x - 2 * m, nSel > 0 ? 70.f * d * bs.size() : 170.f * d);
+    const float x0 = (io.DisplaySize.x - W) * 0.5f;
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    for (int i = 3; i >= 1; i--) dl->AddRectFilled(ImVec2(x0 - i * d, y + i * 1.2f * d), ImVec2(x0 + W + i * d, y + h + i * 1.2f * d), IM_COL32(0, 0, 0, 6), h * 0.5f + i * d);
+    dl->AddRectFilled(ImVec2(x0, y), ImVec2(x0 + W, y + h), alphaU(g_pal.surfaceU, 248), h * 0.5f);
+    dl->AddRect(ImVec2(x0, y), ImVec2(x0 + W, y + h), g_pal.border, h * 0.5f, 0, 1.f);
+    const float cw = W / (float)bs.size();
+    ImFont* bf = g_bold ? g_bold : ImGui::GetFont();
+    const float fs = ImGui::GetFontSize() * 0.9f;
+    for (size_t i = 0; i < bs.size(); i++) {
+        ImGui::SetCursorScreenPos(ImVec2(x0 + cw * i, y));
+        ImGui::PushID((int)i + 900);
+        if (ImGui::InvisibleButton("##ab", ImVec2(cw, h))) act(bs[i].action);
+        ImGui::PopID();
+        const ImU32 col = bs[i].danger ? ImGui::ColorConvertFloat4ToU32(g_pal.err) : ImGui::ColorConvertFloat4ToU32(g_pal.accent);
+        const float tw = bf->CalcTextSizeA(fs, FLT_MAX, 0.f, bs[i].label.c_str()).x;
+        const ImVec4 clip(x0 + cw * i, y, x0 + cw * (i + 1), y + h);
+        dl->AddText(bf, fs, ImVec2(x0 + cw * i + (cw - std::min(tw, cw - 4.f * d)) * 0.5f, y + (h - fs) * 0.5f), col, bs[i].label.c_str(), nullptr, 0.f, &clip);
+    }
+}
+
 void drawFiles() {
     const float d = g_density;
     const int nSel = countSel(S.fm);
     const bool busy = S.mBusy;
 
     static bool qaOpen = false;
+    fmTabSync();
+    tabChips();
     searchPill();
     ImGui::Dummy(ImVec2(0, 2.f * d));
     sectionHeader(T("Akses cepat"), &qaOpen);
@@ -805,6 +998,7 @@ void drawFiles() {
 
     const bool prog = S.mBusy || S.mTotal > 0;
     float footer = (prog ? 160.f : 12.f) * d;
+    if (!prog && (nSel > 0 || S.clipCount > 0)) footer += 56.f * d;
     float h = ImGui::GetContentRegionAvail().y - footer;
     if (h < 150.f * d) h = 150.f * d;
     ImGui::PushStyleColor(ImGuiCol_ChildBg, g_pal.panel);
@@ -814,8 +1008,36 @@ void drawFiles() {
     else if (S.fm.empty()) ImGui::TextColored(g_pal.dim, "%s", S.fmFilter.empty() ? T("Folder ini kosong.") : T("Tidak ada yang cocok dengan pencarian."));
     ImGuiListClipper clip;
     clip.Begin((int)S.fm.size());
-    g_ds.begin(&S.fm, 52.f * d);
+    if (!g_grid) g_ds.begin(&S.fm, 52.f * d);
     static int lpIdx = -1; static bool lpFired = false; static ImVec2 lpPos;
+    if (g_grid) {
+        const float aw = ImGui::GetContentRegionAvail().x;
+        const int cols = std::max(2, (int)(aw / (100.f * d)));
+        const float cw = aw / cols, ch = 122.f * d;
+        const int rows = ((int)S.fm.size() + cols - 1) / cols;
+        ImGuiListClipper gc;
+        gc.Begin(rows, ch);
+        while (gc.Step()) {
+            for (int rI = gc.DisplayStart; rI < gc.DisplayEnd; rI++) {
+                const ImVec2 rowPos = ImGui::GetCursorScreenPos();
+                for (int c = 0; c < cols; c++) {
+                    const int i = rI * cols + c;
+                    if (i >= (int)S.fm.size()) break;
+                    Entry& e = S.fm[i];
+                    const ImVec2 a(rowPos.x + c * cw, rowPos.y);
+                    const ImVec2 mp = ImGui::GetIO().MousePos;
+                    if (ImGui::IsMouseClicked(0) && !g_ctxOpen && ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
+                        mp.x >= a.x && mp.x < a.x + cw && mp.y >= a.y && mp.y < a.y + ch) { lpIdx = i; lpFired = false; lpPos = mp; }
+                    const int r = gridCell(i, e, a, cw, ch, nSel > 0);
+                    if (r == 2) e.sel = !e.sel;
+                    else if (r == 1) { if (e.dir && nSel == 0) act("FM|OPEN|" + std::to_string(i)); else e.sel = !e.sel; }
+                }
+                ImGui::SetCursorScreenPos(ImVec2(rowPos.x, rowPos.y + ch));
+                ImGui::Dummy(ImVec2(0, 0));
+            }
+        }
+        clip.Begin(0);
+    }
     while (clip.Step()) {
         for (int i = clip.DisplayStart; i < clip.DisplayEnd; i++) {
             Entry& e = S.fm[i];
@@ -838,7 +1060,7 @@ void drawFiles() {
             }
         }
     }
-    g_ds.end(&S.fm);
+    if (!g_grid) g_ds.end(&S.fm);
     {
         ImGuiIO& io = ImGui::GetIO();
         if (ImGui::IsMouseClicked(0) && !g_ctxOpen && ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
@@ -858,7 +1080,7 @@ void drawFiles() {
             act("HAPTIC");
         }
     }
-    if (!g_ds.blocksScroll(&S.fm) && !(lpFired && lpIdx != -1)) touchScroll();
+    if ((g_grid || !g_ds.blocksScroll(&S.fm)) && !(lpFired && lpIdx != -1)) touchScroll();
     ImGui::EndChild();
     ImGui::PopStyleVar();
     ImGui::PopStyleColor();
@@ -1607,6 +1829,7 @@ void drawHeader(float h) {
     ImGui::SetNextWindowPos(ImVec2(W - 12.f * d, cy + r + 4.f * d), ImGuiCond_Always, ImVec2(1.f, 0.f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f * d, 6.f * d));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 2.f * d));
+    ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 16.f * d);
     if (ImGui::BeginPopup("hdr_menu")) {
         const float w = 230.f * d;
         auto item = [&](const std::string& label, bool on = true, bool mark = false) {
@@ -1617,6 +1840,10 @@ void drawHeader(float h) {
         };
         const int nSel = countSel(S.fm);
         const bool all = nSel == (int)S.fm.size() && nSel > 0;
+        if (item(std::string(g_grid ? T("Tampilan daftar") : T("Tampilan grid")) + "##mv")) g_grid = !g_grid;
+        if (item(std::string(T("Tab baru")) + "##mt", g_fmTabs.size() < kMaxFmTabs)) fmNewTab();
+        if (item(std::string(T("Tutup tab ini")) + "##mc", g_fmTabs.size() > 1)) fmCloseTab();
+        ImGui::Separator();
         if (item(std::string(T("Folder baru")) + "##m1", !S.mBusy)) act("FM|NEW");
         if (item(std::string(all ? T("Batal pilih") : T("Pilih semua")) + "##m2")) for (auto& e : S.fm) e.sel = !all;
         if (item(std::string(T("Segarkan")) + "##m3")) act("FM|REF");
@@ -1633,7 +1860,7 @@ void drawHeader(float h) {
         if (item("Backup APK##m5", S.shizuku)) { S.apkOpen = true; act("APK|OPEN"); }
         ImGui::EndPopup();
     }
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar(3);
 }
 
 void drawBottomBar(float y, float h) {
@@ -1736,6 +1963,7 @@ void drawUI() {
                 break;
         }
         ImGui::EndChild();
+        if (S.curTab == 0) actionBar(io.DisplaySize.y - navH - navM - 56.f * d);
         drawBottomBar(io.DisplaySize.y - navH - navM, navH);
     }
     ImGui::End();

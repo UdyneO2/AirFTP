@@ -1,3 +1,10 @@
+// Tabel terjemahan dan mesin pencocokan. Teks sumber = bahasa Indonesia.
+//
+// Menambah bahasa:
+//   1. Salin tabel kEn di bawah menjadi tabel baru (mis. kEs), terjemahkan sisi kanan.
+//      Sisi kiri adalah teks sumber dan tidak boleh diubah. '*' = bagian dinamis, {1}, {2}, ... = isi
+//      bagian itu pada terjemahan.
+//   2. Daftarkan di kLangs. Aksara Latin langsung jalan; aksara lain butuh font tambahan.
 #include "i18n.h"
 
 #include <algorithm>
@@ -10,6 +17,7 @@
 
 namespace i18n {
 namespace {
+
 struct Pair { const char* id; const char* tr; };
 
 const Pair kEn[] = {
@@ -124,7 +132,7 @@ const Pair kEn[] = {
     {"Tampilkan file tersembunyi", "Show hidden files"},
     {"Nama berawalan titik (.)", "Names starting with a dot (.)"},
     {"Gunakan tempat sampah", "Use trash"},
-    {"Hapus memindahkan ke /sdcard/AirFTP/.Sampah (Android/data dan OBB dihapus permanen)", "Delete moves items to /sdcard/AirFTP/.Sampah (Android/data and OBB are deleted permanently)"},
+    {"Hapus memindahkan ke /sdcard/Ngirim/.Sampah (Android/data dan OBB dihapus permanen)", "Delete moves items to /sdcard/Ngirim/.Sampah (Android/data and OBB are deleted permanently)"},
     {"Buka tempat sampah", "Open trash"},
     {"Kosongkan sampah", "Empty trash"},
     {"Pasang APK", "Install APK"},
@@ -149,7 +157,7 @@ const Pair kEn[] = {
     {"Buka app Shizuku", "Open Shizuku app"},
     {"Legacy: tanpa UserService, perintah dijalankan lewat Shizuku.Process.", "Legacy: no UserService; commands run through Shizuku.Process."},
     {"Tentang", "About"},
-    {"AirFTP: Berbagi aplikasi dengan mudah", "AirFTP: Share apps with ease"},
+    {"Ngirim: Berbagi aplikasi dengan mudah", "Ngirim: Share apps with ease"},
     {"Kirim lewat Wi-Fi, kelola dua folder sekaligus, dan backup aplikasi ke XAPK, semuanya dalam satu app.", "Send over Wi-Fi, manage two folders side by side, and back up apps to XAPK, all in one app."},
     {"Versi %s", "Version %s"},
     {"Dibuat oleh UdyneO2. Dibangun dengan Dear ImGui, Shizuku API, dan Kotlin.", "Made by UdyneO2. Built with Dear ImGui, the Shizuku API, and Kotlin."},
@@ -193,7 +201,7 @@ const Pair kEn[] = {
     {"File manager: Buka, Bagikan, Pasang APK, dan Ekstrak ZIP", "File manager: Open, Share, Install APK, and Extract ZIP"},
     {"Pilihan pemasangan: installer sistem atau Shizuku (senyap)", "Install option: system installer or Shizuku (silent)"},
     {"Tombol Shizuku Legacy bila bind gagal; coba ulang otomatis dihapus", "A Shizuku Legacy button when binding fails; automatic retry removed"},
-    {"Nama paket jadi com.udyneos.airftp (terpasang sebagai aplikasi baru)", "Package name is now com.udyneos.airftp (installs as a new app)"},
+    {"Nama paket jadi com.udyneos.ngirim (terpasang sebagai aplikasi baru)", "Package name is now com.udyneos.ngirim (installs as a new app)"},
     {"FTP: kotak centang lebih kecil, nama panjang kini terbaca", "FTP: smaller checkboxes, long names are now readable"},
     {"Warna aksen dan bahasa", "Accent colors and languages"},
     {"Pilihan warna aksen di Pengaturan", "Accent color choice in Settings"},
@@ -209,7 +217,7 @@ const Pair kEn[] = {
     {"Service terputus - ketuk Shizuku Legacy atau Hubungkan Shizuku", "Service disconnected - tap Shizuku Legacy or Connect Shizuku"},
     {"Shizuku berhenti - start lagi lewat app Shizuku", "Shizuku stopped - start it again in the Shizuku app"},
     {"Shizuku belum berjalan - buka app Shizuku lalu Start", "Shizuku is not running - open the Shizuku app and tap Start"},
-    {"Izin Shizuku ditolak - izinkan AirFTP di app Shizuku (otomatis tersambung)", "Shizuku permission denied - allow AirFTP in the Shizuku app (it connects automatically)"},
+    {"Izin Shizuku ditolak - izinkan Ngirim di app Shizuku (otomatis tersambung)", "Shizuku permission denied - allow Ngirim in the Shizuku app (it connects automatically)"},
     {"Menunggu izin Shizuku - ketuk Izinkan pada dialog", "Waiting for Shizuku permission - tap Allow in the dialog"},
     {"Shizuku: bind UserService tidak merespons", "Shizuku: UserService bind did not respond"},
     {"Bind service Shizuku gagal. Coba Shizuku Legacy, atau Hubungkan Shizuku untuk bind manual.", "Shizuku service bind failed. Try Shizuku Legacy, or Connect Shizuku to bind manually."},
@@ -274,7 +282,7 @@ const Pair kEn[] = {
     {"Memasang * lewat Shizuku...", "Installing {1} through Shizuku..."},
     {"ERR    pasang: *", "ERR    install: {1}"},
     {"Shizuku belum siap - memakai installer sistem", "Shizuku is not ready - using the system installer"},
-    {"Izinkan 'pasang aplikasi tak dikenal' untuk AirFTP, lalu pasang lagi", "Allow 'install unknown apps' for AirFTP, then install again"},
+    {"Izinkan 'pasang aplikasi tak dikenal' untuk Ngirim, lalu pasang lagi", "Allow 'install unknown apps' for Ngirim, then install again"},
     {"ERR    installer sistem tidak ditemukan", "ERR    system installer not found"},
     {"Memeriksa pembaruan...", "Checking for updates..."},
     {"Belum ada rilis di GitHub.", "No releases on GitHub yet."},
@@ -368,8 +376,8 @@ const Pair kEn[] = {
     {"melebihi batas ZIP 4 GB - matikan opsi OBB/DATA", "exceeds the 4 GB ZIP limit - turn off the OBB/DATA option"},
     {"gagal menamai hasil", "failed to name the result"},
     {"* XAPK dibuat, * gagal", "{1} XAPK created, {2} failed"},
-    {"Bukan server AirFTP", "Not a AirFTP server"},
-    {"Versi protokol berbeda - perbarui AirFTP di kedua perangkat", "Protocol version differs - update AirFTP on both devices"},
+    {"Bukan server Ngirim", "Not a Ngirim server"},
+    {"Versi protokol berbeda - perbarui Ngirim di kedua perangkat", "Protocol version differs - update Ngirim on both devices"},
     {"path harus absolut: *", "path must be absolute: {1}"},
     {"akses di luar /sdcard ditolak: *", "access outside /sdcard denied: {1}"},
     {"path ilegal: *", "illegal path: {1}"},
@@ -399,7 +407,7 @@ const Pair kEn[] = {
     {"Tampilkan QR", "Show QR"},
     {"Sembunyikan QR", "Hide QR"},
     {"QR tidak bisa dibuat.", "Could not create the QR code."},
-    {"Pindai dengan kamera di perangkat pengirim; AirFTP terbuka dan memasangkan otomatis.", "Scan with the camera on the sending device; AirFTP opens and pairs automatically."},
+    {"Pindai dengan kamera di perangkat pengirim; Ngirim terbuka dan memasangkan otomatis.", "Scan with the camera on the sending device; Ngirim opens and pairs automatically."},
     {"Pasangkan dengan *?", "Pair with {1}?"},
     {"Alamat *. Pasangkan hanya dengan perangkat yang kamu kenal.", "Address {1}. Only pair with devices you know."},
     {"Pasangkan", "Pair"},
@@ -413,7 +421,7 @@ const Pair kEn[] = {
     {"Arahkan kamera ke QR di perangkat penerima", "Point the camera at the QR on the receiving device"},
     {"pemindai QR gagal dibuka: *", "QR scanner failed to open: {1}"},
     {"Pemindai QR dan ikon baru", "QR scanner and new icon"},
-    {"Tombol Pindai QR di tab Wi-Fi: kamera langsung di dalam AirFTP", "Scan QR button on the Wi-Fi tab: camera right inside AirFTP"},
+    {"Tombol Pindai QR di tab Wi-Fi: kamera langsung di dalam Ngirim", "Scan QR button on the Wi-Fi tab: camera right inside Ngirim"},
     {"Ikon aplikasi baru", "New app icon"},
     {"Melanjutkan: * sudah ada", "Resuming: {1} already there"},
     {"Melanjutkan: * sudah diterima", "Resuming: {1} already received"},
@@ -474,6 +482,13 @@ const Pair kEn[] = {
     {"Tab bisa ditutup dengan X dan menjadi ikon saja; ketuk ikon untuk membukanya lagi", "Tabs can be closed with X and become icon-only; tap the icon to reopen"},
     {"Tombol + membuka file manager tambahan (maks. 6) dengan folder sendiri; clipboard dipakai bersama", "The + button opens extra file managers (max 6), each with its own folder; the clipboard is shared"},
     {"Kirim ke banyak perangkat sekaligus: centang perangkat, file dikirim berurutan, bisa diulang untuk yang gagal", "Send to many devices at once: tick the devices, files go one after another, and failures can be retried"},
+    {"Cari", "Search"},
+    {"Isi folder", "Folder contents"},
+    {"Hasil pencarian", "Search results"},
+    {"Tampilan grid", "Grid view"},
+    {"Tampilan daftar", "List view"},
+    {"Tab baru", "New tab"},
+    {"Tutup tab ini", "Close this tab"},
 };
 
 struct Table { const char* code; const char* name; const Pair* pairs; size_t n; };
@@ -483,7 +498,7 @@ const Table kLangs[] = {
 };
 const size_t kLangCount = sizeof(kLangs) / sizeof(kLangs[0]);
 
-struct Pattern { std::vector<std::string> lit; std::string out; };
+struct Pattern { std::vector<std::string> lit; std::string out; };  // lit = potongan di antara '*'
 
 struct Active {
     std::string code = "id";
@@ -515,7 +530,7 @@ void load(const Table* t) {
         p.out = t->pairs[i].tr;
         g_act.patterns.push_back(std::move(p));
     }
-
+    // Pola yang lebih spesifik (teks tetap lebih panjang) dicoba lebih dulu.
     auto weight = [](const Pattern& p) { size_t w = 0; for (auto& l : p.lit) w += l.size(); return w; };
     std::stable_sort(g_act.patterns.begin(), g_act.patterns.end(),
                      [&](const Pattern& a, const Pattern& b) { return weight(a) > weight(b); });
@@ -555,6 +570,7 @@ std::string trLocked(const std::string& s, int depth) {
             if (p.out[i] == '{' && i + 2 < p.out.size() + 0 && p.out[i + 2] == '}' && p.out[i + 1] >= '1' && p.out[i + 1] <= '9') {
                 size_t idx = (size_t)(p.out[i + 1] - '1');
                 if (idx < caps.size()) {
+                    // isi dinamis sendiri bisa berupa teks sumber (mis. pesan galat)
                     out += depth < 2 ? trLocked(caps[idx], depth + 1) : caps[idx];
                 }
                 i += 2;
@@ -564,7 +580,8 @@ std::string trLocked(const std::string& s, int depth) {
     }
     return s;
 }
-}
+
+}  // namespace
 
 const LangInfo* languages(int& count) {
     static LangInfo infos[sizeof(kLangs) / sizeof(kLangs[0])];
@@ -610,4 +627,5 @@ const char* T(const char* s) {
     slot = out + suffix;
     return slot.c_str();
 }
-}
+
+}  // namespace i18n
