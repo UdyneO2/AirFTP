@@ -490,6 +490,15 @@ const Pair kEn[] = {
     {"Tab baru", "New tab"},
     {"Tutup tab ini", "Close this tab"},
     {"Aktivitas", "Activity"},
+    {"Tampilan bergaya iOS: bar bawah melayang, kartu berkelompok, saklar dan tombol baru", "iOS-style look: floating bottom bar, grouped cards, new switches and buttons"},
+    {"File manager punya mode daftar dan grid, folder biru, dan kolom cari", "File manager has list and grid modes, blue folders, and a search field"},
+    {"Tab file manager jadi chip di bawah header; bilah aksi melayang untuk item terpilih", "File manager tabs are chips under the header; a floating action bar for selected items"},
+    {"Menu tekan-lama lebih bulat, tema gelap dirapikan", "Rounder long-press menu, polished dark theme"},
+    {"Rilis pertama", "First release"},
+    {"Kirim file lewat Wi-Fi dengan PIN atau QR, bisa ke beberapa perangkat sekaligus", "Send files over Wi-Fi with a PIN or QR, to several devices at once"},
+    {"FTP dua panel, file manager multi-tab, pratinjau gambar, arsip ZIP", "Two-pane FTP, multi-tab file manager, image preview, ZIP archives"},
+    {"Pasang APK/XAPK/APKS/APKM, cadangkan aplikasi, akses Android/data lewat Shizuku", "Install APK/XAPK/APKS/APKM, back up apps, reach Android/data through Shizuku"},
+    {"Tema terang dan gelap, Bahasa Indonesia dan Inggris", "Light and dark themes, Indonesian and English"},
 };
 
 struct Table { const char* code; const char* name; const Pair* pairs; size_t n; };

@@ -22,7 +22,7 @@
 #include "i18n.h"
 
 namespace {
-constexpr const char* kVersion = "v1.0";
+constexpr const char* kVersion = "v1.1";
 
 std::string urlEncode(const std::string& in) {
     static const char* hex = "0123456789ABCDEF";
@@ -206,7 +206,13 @@ const std::vector<Rilis> kRilis = {
      {"Kirim file lewat Wi-Fi dengan PIN atau QR, bisa ke beberapa perangkat sekaligus",
       "FTP dua panel, file manager multi-tab, pratinjau gambar, arsip ZIP",
       "Pasang APK/XAPK/APKS/APKM, cadangkan aplikasi, akses Android/data lewat Shizuku",
-      "Tema terang dan gelap, Bahasa Indonesia dan Inggris"}}
+      "Tema terang dan gelap, Bahasa Indonesia dan Inggris"}},
+    {"v1.1", "Tampilan baru", "18 Nov 2026",
+     {"Tampilan bergaya iOS: bar bawah melayang, kartu berkelompok, saklar dan tombol baru",
+      "File manager punya mode daftar dan grid, folder biru, dan kolom cari",
+      "Tab file manager jadi chip di bawah header; bilah aksi melayang untuk item terpilih",
+      "Menu tekan-lama lebih bulat, tema gelap dirapikan",
+      "Ikon aplikasi baru"}}
 };
 
 const std::vector<const char*> kBatasan = {
