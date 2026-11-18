@@ -2,6 +2,17 @@
 
 Di dalam aplikasi, riwayat ini ada di Pengaturan > Riwayat perubahan.
 
+## v1.1 (18 Nov 2026)
+
+Tampilan baru.
+
+- Bar bawah melayang dengan lima tab, header di tengah, dan tema bergaya iOS (terang dan gelap).
+- Tab Lokal: bagian Akses cepat dan Isi folder dalam kartu, kolom cari, mode daftar dan grid.
+- Tab file manager menjadi chip di bawah header; bilah aksi melayang untuk Salin, Potong, Tempel, Kirim, Hapus.
+- Menu tekan-lama lebih bulat dengan baris Hapus merah.
+- Wi-Fi, FTP, Pengaturan, dan Log memakai kartu berkelompok, tombol pil, dan saklar baru.
+- Ikon aplikasi baru.
+
 ## v1.0 (16 Nov 2026)
 
 Rilis pertama.

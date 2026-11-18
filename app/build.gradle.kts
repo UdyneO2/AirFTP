@@ -3,8 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val vName = (project.findProperty("versionName") as String?) ?: "1.0"
-val vCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+val vName = (project.findProperty("versionName") as String?) ?: "1.1"
+val vCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 2
 
 android {
     namespace = "com.udyneos.airftp"
