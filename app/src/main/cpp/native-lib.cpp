@@ -145,7 +145,7 @@ ImGuiContext* g_ctx = nullptr;
 ImFont* g_mono = nullptr;
 float g_density = 1.f;
 
-struct Pal { ImVec4 ok, warn, err, accent, dim, onAccent, panel, hoverRow, surface, bg, title; ImU32 text, border, boxBg, surfaceU, bgU; } g_pal;
+struct Pal { ImVec4 ok, warn, err, accent, dim, onAccent, panel, hoverRow, surface, bg, title, fill; ImU32 text, border, boxBg, surfaceU, bgU; } g_pal;
 ImFont* g_bold = nullptr;
 std::vector<unsigned char> g_fontReg, g_fontBold;
 
@@ -173,6 +173,7 @@ void applyTheme(bool dark) {
     const ImVec4 sel = mixc(accent, bg, 0.12f), selH = mixc(accent, bg, 0.06f);
     g_pal.accent = accent; g_pal.dim = muted; g_pal.onAccent = rgb(255, 255, 255); g_pal.panel = surface; g_pal.hoverRow = selH;
     g_pal.surface = surface; g_pal.bg = bg; g_pal.title = title;
+    g_pal.fill = dark ? rgb(44, 44, 46) : rgb(235, 235, 240);
     g_pal.text = ImGui::ColorConvertFloat4ToU32(text); g_pal.border = ImGui::ColorConvertFloat4ToU32(border);
     g_pal.boxBg = ImGui::ColorConvertFloat4ToU32(surface);
     g_pal.surfaceU = ImGui::ColorConvertFloat4ToU32(surface); g_pal.bgU = ImGui::ColorConvertFloat4ToU32(bg);
@@ -182,7 +183,7 @@ void applyTheme(bool dark) {
     c[ImGuiCol_Border] = border; c[ImGuiCol_BorderShadow] = ImVec4(0, 0, 0, 0);
     c[ImGuiCol_FrameBg] = surface; c[ImGuiCol_FrameBgHovered] = hover; c[ImGuiCol_FrameBgActive] = press;
     c[ImGuiCol_CheckMark] = accent;
-    c[ImGuiCol_Button] = surface; c[ImGuiCol_ButtonHovered] = hover; c[ImGuiCol_ButtonActive] = press;
+    c[ImGuiCol_Button] = g_pal.fill; c[ImGuiCol_ButtonHovered] = g_pal.fill; c[ImGuiCol_ButtonActive] = mixc(border, g_pal.fill, 0.7f);
     c[ImGuiCol_Header] = sel; c[ImGuiCol_HeaderHovered] = selH; c[ImGuiCol_HeaderActive] = sel;
     c[ImGuiCol_Separator] = border; c[ImGuiCol_SeparatorHovered] = accent; c[ImGuiCol_SeparatorActive] = accent;
     c[ImGuiCol_Tab] = surface; c[ImGuiCol_TabHovered] = selH; c[ImGuiCol_TabSelected] = surface;
@@ -354,26 +355,68 @@ bool toggleSwitch(const char* id, bool on) {
     bool clicked = ImGui::InvisibleButton(id, ImVec2(w, std::max(h, 32.f * d)));
     p.y += (std::max(h, 32.f * d) - h) * 0.5f;
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    if (on) dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), ImGui::ColorConvertFloat4ToU32(g_pal.accent), h * 0.5f);
-    else {
-        dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), g_pal.boxBg, h * 0.5f);
-        dl->AddRect(p, ImVec2(p.x + w, p.y + h), g_pal.border, h * 0.5f, 0, 1.5f * d);
-    }
-    const float kr = h * 0.5f - 4.f * d;
-    dl->AddCircleFilled(ImVec2(on ? p.x + w - h * 0.5f : p.x + h * 0.5f, p.y + h * 0.5f), kr,
-                        on ? IM_COL32(255, 255, 255, 255) : g_pal.text);
+    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), on ? ImGui::ColorConvertFloat4ToU32(g_pal.ok) : (S.dark ? IM_COL32(57, 57, 61, 255) : IM_COL32(210, 210, 215, 255)), h * 0.5f);
+    const float kr = h * 0.5f - 2.f * d;
+    dl->AddCircleFilled(ImVec2(on ? p.x + w - h * 0.5f : p.x + h * 0.5f, p.y + h * 0.5f + 0.5f * d), kr + 0.5f * d, IM_COL32(0, 0, 0, 28));
+    dl->AddCircleFilled(ImVec2(on ? p.x + w - h * 0.5f : p.x + h * 0.5f, p.y + h * 0.5f), kr, IM_COL32(255, 255, 255, 255));
     return clicked;
+}
+
+struct CardState { ImDrawListSplitter sp; ImVec2 start; float w = 0; float rMax = 0, wMax = 0; bool on = false; } g_card;
+
+void cardOpen() {
+    if (g_card.on) return;
+    const float d = g_density, pad = 14.f * d;
+    ImGuiWindow* win = ImGui::GetCurrentWindow();
+    g_card.on = true;
+    g_card.start = ImGui::GetCursorScreenPos();
+    g_card.w = ImGui::GetContentRegionAvail().x;
+    g_card.sp.Split(win->DrawList, 2);
+    g_card.sp.SetCurrentChannel(win->DrawList, 1);
+    ImGui::Dummy(ImVec2(0, 6.f * d));
+    ImGui::Indent(pad);
+    g_card.rMax = win->ContentRegionRect.Max.x;
+    g_card.wMax = win->WorkRect.Max.x;
+    win->ContentRegionRect.Max.x -= pad;
+    win->WorkRect.Max.x -= pad;
+}
+
+void cardClose() {
+    if (!g_card.on) return;
+    const float d = g_density, pad = 14.f * d;
+    ImGuiWindow* win = ImGui::GetCurrentWindow();
+    win->ContentRegionRect.Max.x = g_card.rMax;
+    win->WorkRect.Max.x = g_card.wMax;
+    ImGui::Unindent(pad);
+    ImGui::Dummy(ImVec2(0, 6.f * d));
+    const ImVec2 e(g_card.start.x + g_card.w, ImGui::GetCursorScreenPos().y - ImGui::GetStyle().ItemSpacing.y);
+    g_card.sp.SetCurrentChannel(win->DrawList, 0);
+    win->DrawList->AddRectFilled(g_card.start, e, g_pal.surfaceU, 14.f * d);
+    g_card.sp.Merge(win->DrawList);
+    g_card.on = false;
+    ImGui::Dummy(ImVec2(0, 2.f * d));
+}
+
+void cardRule(float inset = 0.f) {
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    const float w = ImGui::GetContentRegionAvail().x;
+    ImGui::GetWindowDrawList()->AddLine(ImVec2(p.x + inset, p.y), ImVec2(p.x + w, p.y), g_pal.border);
+    ImGui::Dummy(ImVec2(0, 1.f));
 }
 
 void Heading(const char* text) {
     const float d = g_density;
-    ImGui::Dummy(ImVec2(0, 4.f * d));
-    if (g_bold) ImGui::PushFont(g_bold);
+    cardClose();
+    ImGui::Dummy(ImVec2(0, 8.f * d));
+    ImGui::Indent(6.f * d);
+    ImFont* bf = g_bold ? g_bold : ImGui::GetFont();
+    ImGui::PushFont(bf);
+    ImGui::PushStyleColor(ImGuiCol_Text, g_pal.dim);
     ImGui::TextUnformatted(text, ImGui::FindRenderedTextEnd(text));
-    if (g_bold) ImGui::PopFont();
-    ImVec2 p = ImGui::GetCursorScreenPos();
-    ImGui::GetWindowDrawList()->AddLine(ImVec2(p.x, p.y + 1.f), ImVec2(p.x + ImGui::GetContentRegionAvail().x, p.y + 1.f), g_pal.border);
-    ImGui::Dummy(ImVec2(0, 5.f * d));
+    ImGui::PopStyleColor();
+    ImGui::PopFont();
+    ImGui::Unindent(6.f * d);
+    cardOpen();
 }
 
 bool Btn(const char* label, ImVec2 size = ImVec2(0, 0)) {
@@ -1167,13 +1210,18 @@ void drawNet() {
     const float d = g_density;
     const ImVec4 ok = g_pal.ok, warn = g_pal.warn, acc = g_pal.accent;
 
+    cardOpen();
     {
         std::string shown, line;
         for (size_t i = 0; i <= S.permMsg.size(); i++) {
             if (i == S.permMsg.size() || S.permMsg[i] == '\n') { if (!shown.empty()) shown += '\n'; shown += i18n::tr(line); line.clear(); }
             else line += S.permMsg[i];
         }
+        const ImVec2 q = ImGui::GetCursorScreenPos();
+        ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(q.x + 6.f * d, q.y + ImGui::GetTextLineHeight() * 0.5f), 5.f * d, ImGui::ColorConvertFloat4ToU32(S.permOk ? ok : warn));
+        ImGui::Indent(18.f * d);
         ImGui::TextColored(S.permOk ? ok : warn, "%s", shown.c_str());
+        ImGui::Unindent(18.f * d);
     }
     if (!S.permOk) {
         if (Btn(T("Berikan izin / periksa ulang"), ImVec2(-FLT_MIN, 52.f * d))) act("NET_PERM");
@@ -1273,6 +1321,7 @@ void drawNet() {
             ImVec2 q = ImGui::GetCursorScreenPos();
             const float W = ImGui::GetContentRegionAvail().x;
             const float xW = 44.f * d;
+            if (i > 0) ImGui::GetWindowDrawList()->AddLine(ImVec2(q.x + 44.f * d, q.y), ImVec2(q.x + ImGui::GetContentRegionAvail().x, q.y), g_pal.border);
             ImGui::SetNextItemAllowOverlap();
             if (ImGui::Selectable("##t", false, ImGuiSelectableFlags_AllowOverlap, ImVec2(W, rowH))) act("NET_ACTIVE|" + std::to_string(i));
             ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -1338,6 +1387,8 @@ void drawNet() {
     size_t from = S.logs.size() > 5 ? S.logs.size() - 5 : 0;
     for (size_t i = from; i < S.logs.size(); i++) ImGui::TextWrapped("%.11s%s", S.logs[i].c_str(), i18n::tr(S.logs[i].size() > 11 ? S.logs[i].c_str() + 11 : "").c_str());
     if (g_mono) ImGui::PopFont();
+    cardClose();
+    ImGui::Dummy(ImVec2(0, 24.f * d));
 }
 
 void drawPane(int i, float w, float h) {
@@ -1439,6 +1490,8 @@ void drawFtp() {
 
     if (!S.fBusy) {
         const float bw = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+        ImGui::PushStyleColor(ImGuiCol_Button, g_pal.accent);
+        ImGui::PushStyleColor(ImGuiCol_Text, g_pal.onAccent);
         ImGui::BeginDisabled(!S.shizuku || nL == 0);
         if (Btn(T("Kiri  >>  Kanan"), ImVec2(bw, 50.f * d))) {
             act("FP_XFER|0|" + std::to_string(S.fMove) + "|" + idxSel(S.pane[0].e));
@@ -1452,6 +1505,7 @@ void drawFtp() {
             S.fBusy = true; S.fDone = 0; S.fTotal = 0; S.fSpeed = 0; S.fCur = "Menyiapkan...";
         }
         ImGui::EndDisabled();
+        ImGui::PopStyleColor(2);
     } else {
         if (Btn(T("BATALKAN##ftp"), ImVec2(-FLT_MIN, 54.f * d))) act("CANCEL");
     }
@@ -1476,6 +1530,7 @@ void settingToggle(const char* id, const char* label, const char* sub, bool on, 
 
 void drawSettings() {
     const float d = g_density;
+    ImGui::Dummy(ImVec2(0, 2.f * d));
 
     Heading(T("Tampilan"));
     {
@@ -1565,6 +1620,7 @@ void drawSettings() {
         ImGui::TreePop();
     }
 
+    cardClose();
     ImGui::Spacing();
     {
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.f * d, 10.f * d));
@@ -1958,7 +2014,22 @@ void drawUI() {
                 ImGui::EndChild();
                 break;
             default:
-                if (Btn(T("Bersihkan log"))) S.logs.clear();
+                {
+                    const float d2 = g_density;
+                    const ImVec2 q = ImGui::GetCursorScreenPos();
+                    const float W = ImGui::GetContentRegionAvail().x, h = 36.f * d2;
+                    ImDrawList* dl = ImGui::GetWindowDrawList();
+                    ImFont* bf = g_bold ? g_bold : ImGui::GetFont();
+                    char cnt[48];
+                    snprintf(cnt, sizeof cnt, "%d", (int)S.logs.size());
+                    dl->AddText(bf, ImGui::GetFontSize() * 1.05f, ImVec2(q.x + 6.f * d2, q.y + (h - ImGui::GetFontSize()) * 0.5f), g_pal.text, T("Aktivitas"));
+                    const float aw = ImGui::CalcTextSize(T("Bersihkan log")).x;
+                    ImGui::SetCursorScreenPos(ImVec2(q.x + W - aw - 20.f * d2, q.y));
+                    if (ImGui::InvisibleButton("##clr", ImVec2(aw + 20.f * d2, h))) S.logs.clear();
+                    dl->AddText(bf, ImGui::GetFontSize(), ImVec2(q.x + W - aw - 10.f * d2, q.y + (h - ImGui::GetFontSize()) * 0.5f), ImGui::ColorConvertFloat4ToU32(g_pal.accent), T("Bersihkan log"));
+                    ImGui::SetCursorScreenPos(ImVec2(q.x, q.y + h + 4.f * d2));
+                    (void)cnt;
+                }
                 drawTerminal("term_main", ImGui::GetContentRegionAvail().y);
                 break;
         }
@@ -2029,7 +2100,7 @@ JNIEXPORT void JNICALL Java_com_udyneos_airftp_Native_initGl(JNIEnv*, jclass, jf
 
         st.WindowRounding = 4; st.FrameRounding = 10; st.ChildRounding = 14;
         st.GrabRounding = 8; st.TabRounding = 8; st.ScrollbarRounding = 4; st.PopupRounding = 14;
-        st.FrameBorderSize = 1.f; st.ChildBorderSize = 0.f; st.WindowBorderSize = 0.f; st.TabBorderSize = 0.f;
+        st.FrameBorderSize = 0.f; st.ChildBorderSize = 0.f; st.WindowBorderSize = 0.f; st.TabBorderSize = 0.f;
         st.PopupBorderSize = 1.f;
         st.TabBarOverlineSize = 2.f;
         st.FramePadding = ImVec2(12, 9);

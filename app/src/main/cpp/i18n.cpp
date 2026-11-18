@@ -489,6 +489,7 @@ const Pair kEn[] = {
     {"Tampilan daftar", "List view"},
     {"Tab baru", "New tab"},
     {"Tutup tab ini", "Close this tab"},
+    {"Aktivitas", "Activity"},
 };
 
 struct Table { const char* code; const char* name; const Pair* pairs; size_t n; };
