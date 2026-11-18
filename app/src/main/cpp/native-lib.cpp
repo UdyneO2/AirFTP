@@ -450,18 +450,16 @@ void drawEntryIcon(ImDrawList* dl, ImVec2 p, float s, bool dir, const std::strin
 }
 
 void drawCheck(ImDrawList* dl, ImVec2 c, float s, bool on) {
-    ImVec2 a(c.x - s * 0.5f, c.y - s * 0.5f), b(c.x + s * 0.5f, c.y + s * 0.5f);
+    const float r = s * 0.5f;
     if (on) {
-        dl->AddRectFilled(a, b, ImGui::ColorConvertFloat4ToU32(g_pal.accent), 4.f * g_density);
-        const float t = s * 0.14f;
-        ImVec2 pts[3] = {ImVec2(c.x - s * 0.26f, c.y), ImVec2(c.x - s * 0.06f, c.y + s * 0.22f), ImVec2(c.x + s * 0.28f, c.y - s * 0.2f)};
+        dl->AddCircleFilled(c, r, ImGui::ColorConvertFloat4ToU32(g_pal.accent), 24);
+        const float t = s * 0.12f;
+        ImVec2 pts[3] = {ImVec2(c.x - s * 0.22f, c.y + s * 0.01f), ImVec2(c.x - s * 0.05f, c.y + s * 0.18f), ImVec2(c.x + s * 0.24f, c.y - s * 0.16f)};
         dl->AddPolyline(pts, 3, IM_COL32(255, 255, 255, 255), 0, t);
     } else {
-        dl->AddRectFilled(a, b, g_pal.boxBg, 4.f * g_density);
-        dl->AddRect(a, b, g_pal.border, 4.f * g_density, 0, 1.5f * g_density);
+        dl->AddCircle(c, r - 0.75f * g_density, ImGui::ColorConvertFloat4ToU32(g_pal.dim), 24, 1.4f * g_density);
     }
 }
-
 int rowFrame(const char* id, bool sel, float rowH, bool showBox, ImVec2& origin, float& width, bool compact = false) {
     const float d = g_density;
     origin = ImGui::GetCursorScreenPos();
@@ -489,7 +487,13 @@ int fileRow(int idx, Entry& e, float rowH, bool showBox = true, bool showDate = 
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const float is = rowH * (compact ? 0.44f : 0.56f);
     drawEntryIcon(dl, ImVec2(q.x + (compact ? 0.f : 4.f * d), q.y + (rowH - is) * 0.5f), is, e.dir, e.name);
-    const ImVec4 clip(q.x, q.y, q.x + w, q.y + rowH);
+    const ImVec4 clip(q.x, q.y, q.x + w - (!compact && e.dir ? 22.f * d : 0.f), q.y + rowH);
+    if (!compact && e.dir) {
+        const ImVec2 c(q.x + w - 12.f * d, q.y + rowH * 0.5f);
+        const float u = 4.5f * d;
+        ImVec2 p[3] = {ImVec2(c.x - u * 0.5f, c.y - u), ImVec2(c.x + u * 0.5f, c.y), ImVec2(c.x - u * 0.5f, c.y + u)};
+        dl->AddPolyline(p, 3, ImGui::ColorConvertFloat4ToU32(g_pal.dim), 0, 1.6f * d);
+    }
     ImFont* f = ImGui::GetFont();
     const float fs = ImGui::GetFontSize() * (compact ? 0.9f : 1.f);
     const float tx = q.x + is + (compact ? 6.f : 14.f) * d;
@@ -603,28 +607,90 @@ void quickAccess(const std::string& prefix, const std::string& curPath, bool all
     }
 }
 
-void breadcrumb() {
-    std::vector<std::pair<std::string, std::string>> segs;
-    std::string p = S.fmPath, cum;
-    size_t i = 0;
-    while (i < p.size()) {
-        while (i < p.size() && p[i] == '/') i++;
-        size_t j = p.find('/', i);
-        if (j == std::string::npos) j = p.size();
-        if (j > i) {
-            std::string part = p.substr(i, j - i);
-            cum += "/" + part;
-            segs.push_back({cum == "/sdcard" ? "Internal" : part, cum});
-        }
-        i = j;
-    }
-    bool first = true;
-    if (wrapButton(T("Naik##fmup"), first)) act("FM|UP");
-    for (size_t k = 0; k < segs.size(); k++) {
-        std::string l = (k ? "> " : "") + tailEllipsis(segs[k].first, 18) + "##seg" + std::to_string(k);
-        if (wrapButton(l, first, k + 1 == segs.size())) act("FM|GO|" + segs[k].second);
+void sectionHeader(const char* label, bool* open, const std::string& right = "") {
+    const float d = g_density;
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    const float W = ImGui::GetContentRegionAvail().x, h = 34.f * d;
+    if (ImGui::InvisibleButton(label, ImVec2(W, h)) && open) *open = !*open;
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const float fs = ImGui::GetFontSize();
+    ImFont* bf = g_bold ? g_bold : ImGui::GetFont();
+    dl->AddText(bf, fs * 1.05f, ImVec2(p.x + 4.f * d, p.y + (h - fs) * 0.5f), g_pal.text, label);
+    const ImU32 dim = ImGui::ColorConvertFloat4ToU32(g_pal.dim);
+    const ImVec2 c(p.x + W - 14.f * d, p.y + h * 0.5f);
+    const float u = 4.5f * d;
+    if (open && *open) { ImVec2 q[3] = {ImVec2(c.x - u, c.y - u * 0.5f), ImVec2(c.x, c.y + u * 0.5f), ImVec2(c.x + u, c.y - u * 0.5f)}; dl->AddPolyline(q, 3, dim, 0, 1.8f * d); }
+    else if (open) { ImVec2 q[3] = {ImVec2(c.x - u * 0.5f, c.y - u), ImVec2(c.x + u * 0.5f, c.y), ImVec2(c.x - u * 0.5f, c.y + u)}; dl->AddPolyline(q, 3, dim, 0, 1.8f * d); }
+    if (!right.empty()) {
+        const float rw = ImGui::CalcTextSize(right.c_str()).x;
+        dl->AddText(ImVec2(c.x + (open ? -18.f * d : 6.f * d) - rw, p.y + (h - fs) * 0.5f), dim, right.c_str());
     }
 }
+
+void searchPill() {
+    const float d = g_density;
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    const float W = ImGui::GetContentRegionAvail().x, h = 42.f * d;
+    const bool has = !S.fmFilter.empty();
+    if (ImGui::InvisibleButton("##search", ImVec2(W, h))) {
+        const bool onClear = has && ImGui::GetIO().MousePos.x > p.x + W - 46.f * d;
+        act(has && onClear ? "FM|FINDX" : "FM|FIND");
+    }
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->AddRectFilled(p, ImVec2(p.x + W, p.y + h), g_pal.surfaceU, h * 0.5f);
+    dl->AddRect(p, ImVec2(p.x + W, p.y + h), g_pal.border, h * 0.5f, 0, 1.f);
+    const ImU32 dim = ImGui::ColorConvertFloat4ToU32(g_pal.dim);
+    const ImVec2 c(p.x + 22.f * d, p.y + h * 0.5f - 1.f * d);
+    dl->AddCircle(c, 6.f * d, dim, 20, 1.8f * d);
+    dl->AddLine(ImVec2(c.x + 4.4f * d, c.y + 4.4f * d), ImVec2(c.x + 9.f * d, c.y + 9.f * d), dim, 1.8f * d);
+    const float fs = ImGui::GetFontSize();
+    const std::string label = has ? S.fmFilter : T("Cari");
+    const ImVec4 clip(p.x + 40.f * d, p.y, p.x + W - (has ? 46.f * d : 14.f * d), p.y + h);
+    dl->AddText(ImGui::GetFont(), fs, ImVec2(p.x + 40.f * d, p.y + (h - fs) * 0.5f), has ? g_pal.text : dim, label.c_str(), nullptr, 0.f, &clip);
+    if (has) {
+        const ImVec2 x(p.x + W - 24.f * d, p.y + h * 0.5f);
+        dl->AddCircleFilled(x, 8.f * d, dim, 16);
+        const float u = 3.f * d;
+        dl->AddLine(ImVec2(x.x - u, x.y - u), ImVec2(x.x + u, x.y + u), g_pal.surfaceU, 1.5f * d);
+        dl->AddLine(ImVec2(x.x - u, x.y + u), ImVec2(x.x + u, x.y - u), g_pal.surfaceU, 1.5f * d);
+    }
+}
+
+void quickCard() {
+    const float d = g_density;
+    std::vector<std::pair<std::string, std::string>> rows;
+    for (auto& p : kPresets) rows.push_back({p.label, p.path});
+    for (auto& b : S.bookmarks) rows.push_back({baseName(b), b});
+    const float rowH = 46.f * d;
+    const float h = std::min(rowH * rows.size(), rowH * 4.5f);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, g_pal.panel);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+    ImGui::BeginChild("fm_qa", ImVec2(0, h), 0, ImGuiWindowFlags_NoScrollbar);
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    for (size_t i = 0; i < rows.size(); i++) {
+        const ImVec2 q = ImGui::GetCursorScreenPos();
+        const float W = ImGui::GetContentRegionAvail().x;
+        ImGui::PushID((int)i);
+        const bool cur = S.fmPath == rows[i].second;
+        if (ImGui::Selectable("##qa", cur, 0, ImVec2(W, rowH))) act("FM|GO|" + rows[i].second);
+        ImGui::PopID();
+        const float is = 26.f * d;
+        drawEntryIcon(dl, ImVec2(q.x + 14.f * d, q.y + (rowH - is) * 0.5f), is, true, "");
+        const float fs = ImGui::GetFontSize();
+        dl->AddText(ImGui::GetFont(), fs, ImVec2(q.x + 14.f * d + is + 12.f * d, q.y + (rowH - fs) * 0.5f), g_pal.text, rows[i].first.c_str());
+        const ImVec2 c(q.x + W - 16.f * d, q.y + rowH * 0.5f);
+        const float u = 4.5f * d;
+        ImVec2 ch[3] = {ImVec2(c.x - u * 0.5f, c.y - u), ImVec2(c.x + u * 0.5f, c.y), ImVec2(c.x - u * 0.5f, c.y + u)};
+        dl->AddPolyline(ch, 3, ImGui::ColorConvertFloat4ToU32(g_pal.dim), 0, 1.6f * d);
+        if (i + 1 < rows.size()) dl->AddLine(ImVec2(q.x + 14.f * d + is + 12.f * d, q.y + rowH), ImVec2(q.x + W, q.y + rowH), g_pal.border);
+    }
+    touchScroll();
+    ImGui::EndChild();
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor();
+}
+
 
 struct CtxReq { bool want = false, blank = false; ImVec2 pos{0, 0}; } g_ctxReq;
 std::atomic<bool> g_ctxOpen{false}, g_ctxClose{false};
@@ -726,42 +792,24 @@ void drawFiles() {
     const int nSel = countSel(S.fm);
     const bool busy = S.mBusy;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.f * d, 4.f * d));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.f * d, 6.f * d));
-    beginPanel("fm_head");
-    breadcrumb();
-
-    bool first = true;
-    ImGui::BeginDisabled(busy);
-    if (wrapButton(T("Folder baru##fm"), first)) act("FM|NEW");
-    ImGui::EndDisabled();
-    if (wrapButton(nSel == (int)S.fm.size() && nSel > 0 ? T("Batal##fm") : T("Semua##fm"), first))
-        for (auto& e : S.fm) e.sel = !(nSel == (int)S.fm.size() && nSel > 0);
-    if (wrapButton(T("Segarkan##fm"), first)) act("FM|REF");
-    ImGui::BeginDisabled(!S.shizuku);
-    if (wrapButton("Backup APK##fm", first, S.aBusy)) { S.apkOpen = true; act("APK|OPEN"); }
-    ImGui::EndDisabled();
-
-    ImGui::TextColored(g_pal.dim, "%s", T("Akses cepat"));
-    quickAccess("FM", S.fmPath, true);
-
-    ImGui::TextColored(g_pal.dim, "%s", T("Urutkan"));
-    first = true;
-    const char* sk[] = {T("Nama"), T("Ukuran"), T("Tanggal"), T("Jenis")};
-    for (int k = 0; k < 4; k++) {
-        std::string l = std::string(sk[k]) + (S.fmSort == k ? (S.fmAsc ? " ^" : " v") : "") + "##sort" + std::to_string(k);
-        if (wrapButton(l, first, S.fmSort == k)) act("FM|SORT|" + std::to_string(k));
+    static bool qaOpen = false;
+    searchPill();
+    ImGui::Dummy(ImVec2(0, 2.f * d));
+    sectionHeader(T("Akses cepat"), &qaOpen);
+    if (qaOpen) { quickCard(); ImGui::Dummy(ImVec2(0, 4.f * d)); }
+    {
+        char cnt[48];
+        snprintf(cnt, sizeof cnt, T("%d item"), (int)S.fm.size());
+        sectionHeader(S.fmFilter.empty() ? T("Isi folder") : T("Hasil pencarian"), nullptr, cnt);
     }
-    if (wrapButton(S.fmFilter.empty() ? T("Cari...##fm") : ([&] { char b[96]; snprintf(b, sizeof b, T("Cari: %s (hapus)"), tailEllipsis(S.fmFilter, 12).c_str()); return std::string(b) + "##fm"; })(), first, !S.fmFilter.empty()))
-        act(S.fmFilter.empty() ? "FM|FIND" : "FM|FINDX");
-    endPanel();
-    ImGui::PopStyleVar(2);
 
     const bool prog = S.mBusy || S.mTotal > 0;
     float footer = (prog ? 160.f : 12.f) * d;
     float h = ImGui::GetContentRegionAvail().y - footer;
     if (h < 150.f * d) h = 150.f * d;
-    ImGui::BeginChild("fm_list", ImVec2(0, h), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, g_pal.panel);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.f * d, 0.f));
+    ImGui::BeginChild("fm_list", ImVec2(0, h), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoScrollbar);
     if (!S.fmErr.empty()) ImGui::TextColored(g_pal.err, "%s", i18n::tr(S.fmErr).c_str());
     else if (S.fm.empty()) ImGui::TextColored(g_pal.dim, "%s", S.fmFilter.empty() ? T("Folder ini kosong.") : T("Tidak ada yang cocok dengan pencarian."));
     ImGuiListClipper clip;
@@ -780,6 +828,9 @@ void drawFiles() {
             }
             g_ds.row(&S.fm, e.sel, ry, ry + 56.f * d + ImGui::GetStyle().ItemSpacing.y);
             int r = fileRow(i, e, 56.f * d);
+            if (i + 1 < (int)S.fm.size())
+                ImGui::GetWindowDrawList()->AddLine(ImVec2(ImGui::GetWindowPos().x + 96.f * d, ry + 56.f * d),
+                                                    ImVec2(ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - 6.f * d, ry + 56.f * d), g_pal.border);
             if (r == 2) e.sel = !e.sel;
             else if (r == 1) {
                 if (e.dir) act("FM|OPEN|" + std::to_string(i));
@@ -809,6 +860,8 @@ void drawFiles() {
     }
     if (!g_ds.blocksScroll(&S.fm) && !(lpFired && lpIdx != -1)) touchScroll();
     ImGui::EndChild();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
     fmContextMenu(busy);
 
     if (S.mBusy) {
@@ -1489,72 +1542,11 @@ void drawIcon(ImDrawList* dl, Icon ic, ImVec2 c, float size, ImU32 col) {
     }
 }
 
-struct TabDef { int kind; bool closed = false; std::string path; };
-std::vector<TabDef> g_tabs = {{0}, {1}, {2}, {3}, {4}};
-int g_cur = 0, g_lastFm = 0;
-std::string g_waitPath;
-int g_waitFrames = 0;
-constexpr int kMaxFm = 6;
-
-int fmCount() { int n = 0; for (auto& t : g_tabs) if (t.kind == 0) n++; return n; }
-
-void selectTabIdx(int i) {
-    if (i < 0 || i >= (int)g_tabs.size()) return;
-    if (g_tabs[g_cur].kind == 0 && g_waitPath.empty()) g_tabs[g_cur].path = S.fmPath;
-    g_cur = i;
-    g_tabs[i].closed = false;
-    S.curTab = g_tabs[i].kind;
-    S.apkOpen = false;
-    if (g_tabs[i].kind == 0) {
-        g_lastFm = i;
-        if (g_tabs[i].path.empty()) g_tabs[i].path = S.fmPath;
-        else if (g_tabs[i].path != S.fmPath) { g_waitPath = g_tabs[i].path; g_waitFrames = 90; act("FM|GO|" + g_tabs[i].path); }
-        else g_waitPath.clear();
-    }
-}
-
-void selectTabKind(int kind) {
-    int idx = -1;
-    if (kind == 0 && g_lastFm < (int)g_tabs.size() && g_tabs[g_lastFm].kind == 0) idx = g_lastFm;
-    for (int i = 0; idx < 0 && i < (int)g_tabs.size(); i++) if (g_tabs[i].kind == kind) idx = i;
-    selectTabIdx(idx);
-}
-
-void newFmTab() {
-    if (fmCount() >= kMaxFm) return;
-    if (g_tabs[g_cur].kind == 0 && g_waitPath.empty()) g_tabs[g_cur].path = S.fmPath;
-    int at = g_lastFm + 1;
-    g_tabs.insert(g_tabs.begin() + at, TabDef{0, false, S.fmPath});
-    g_waitPath.clear();
-    g_cur = at; g_lastFm = at;
-    S.curTab = 0; S.apkOpen = false;
-}
-
-void closeTab(int i) {
-    if (i < 0 || i >= (int)g_tabs.size()) return;
-    if (g_tabs[i].kind == 0) {
-        if (fmCount() <= 1) return;
-        g_tabs.erase(g_tabs.begin() + i);
-        if (g_cur > i) g_cur--;
-
-        int j = -1;
-        for (int k = std::min(i, (int)g_tabs.size()) - 1; k >= 0 && j < 0; k--) if (g_tabs[k].kind == 0) j = k;
-        for (int k = i; k < (int)g_tabs.size() && j < 0; k++) if (g_tabs[k].kind == 0) j = k;
-        g_cur = j; g_lastFm = j; g_waitPath.clear();
-        S.curTab = 0; S.apkOpen = false;
-        if (g_tabs[j].path.empty()) g_tabs[j].path = S.fmPath;
-        else if (g_tabs[j].path != S.fmPath) { g_waitPath = g_tabs[j].path; g_waitFrames = 90; act("FM|GO|" + g_tabs[j].path); }
-        return;
-    }
-    g_tabs[i].closed = true;
-    selectTabIdx(g_lastFm);
-}
-
-std::string fmTabLabel(const TabDef& t, bool live) {
-    std::string p = live ? S.fmPath : t.path;
+std::string folderTitle() {
+    std::string p = S.fmPath;
     while (p.size() > 1 && p.back() == '/') p.pop_back();
     if (p.empty() || p == "/sdcard" || p == "/storage/emulated/0") return T("Lokal");
-    size_t k = p.rfind('/');
+    const size_t k = p.rfind('/');
     return k == std::string::npos ? p : p.substr(k + 1);
 }
 
@@ -1592,7 +1584,7 @@ void drawHeader(float h) {
         case 0: {
             const int n = countSel(S.fm);
             if (n > 0) { char b[64]; snprintf(b, sizeof b, T("%d dipilih"), n); title = b; }
-            else title = fmTabLabel(g_tabs[g_cur], true);
+            else title = folderTitle();
             break;
         }
         case 1: title = "Wi-Fi"; break;
@@ -1616,23 +1608,29 @@ void drawHeader(float h) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f * d, 6.f * d));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 2.f * d));
     if (ImGui::BeginPopup("hdr_menu")) {
-        const float w = 210.f * d;
-        auto item = [&](const char* label, bool on = true, bool mark = false) {
+        const float w = 230.f * d;
+        auto item = [&](const std::string& label, bool on = true, bool mark = false) {
             ImGui::BeginDisabled(!on);
-            const bool hit = ImGui::Selectable(label, mark, 0, ImVec2(w, 40.f * d));
+            const bool hit = ImGui::Selectable(label.c_str(), mark, 0, ImVec2(w, 40.f * d));
             ImGui::EndDisabled();
             return hit;
         };
-        if (item(T("Tab baru"), fmCount() < kMaxFm)) newFmTab();
-        if (item(T("Tutup tab ini"), fmCount() > 1)) closeTab(g_cur);
-        if (fmCount() > 1) {
-            ImGui::Separator();
-            for (int i = 0; i < (int)g_tabs.size(); i++) {
-                if (g_tabs[i].kind != 0) continue;
-                std::string l = fmTabLabel(g_tabs[i], i == g_cur) + "##ft" + std::to_string(i);
-                if (item(l.c_str(), true, i == g_cur)) selectTabIdx(i);
-            }
+        const int nSel = countSel(S.fm);
+        const bool all = nSel == (int)S.fm.size() && nSel > 0;
+        if (item(std::string(T("Folder baru")) + "##m1", !S.mBusy)) act("FM|NEW");
+        if (item(std::string(all ? T("Batal pilih") : T("Pilih semua")) + "##m2")) for (auto& e : S.fm) e.sel = !all;
+        if (item(std::string(T("Segarkan")) + "##m3")) act("FM|REF");
+        bool isBm = false;
+        for (auto& b : S.bookmarks) if (b == S.fmPath) isBm = true;
+        if (item(std::string(isBm ? T("Lepas sematan") : T("Sematkan folder ini")) + "##m4")) act("BM|" + S.fmPath);
+        ImGui::Separator();
+        const char* sk[] = {T("Nama"), T("Ukuran"), T("Tanggal"), T("Jenis")};
+        for (int k = 0; k < 4; k++) {
+            std::string l = std::string(T("Urutkan")) + ": " + sk[k] + (S.fmSort == k ? (S.fmAsc ? "  ^" : "  v") : "") + "##s" + std::to_string(k);
+            if (item(l, true, S.fmSort == k)) act("FM|SORT|" + std::to_string(k));
         }
+        ImGui::Separator();
+        if (item("Backup APK##m5", S.shizuku)) { S.apkOpen = true; act("APK|OPEN"); }
         ImGui::EndPopup();
     }
     ImGui::PopStyleVar(2);
@@ -1669,13 +1667,6 @@ void drawBottomBar(float y, float h) {
         const float lw = f->CalcTextSizeA(fs, FLT_MAX, 0.f, tabs[i].label).x;
         const ImVec4 clip(x0, y, x0 + cw, b.y);
         dl->AddText(f, fs, ImVec2(x0 + (cw - std::min(lw, cw - 4.f * d)) * 0.5f, y + pad + 4.f * d + isz + 2.f * d), col, tabs[i].label, nullptr, 0.f, &clip);
-        if (i == 0 && fmCount() > 1) {
-            char nb[8]; snprintf(nb, sizeof nb, "%d", fmCount());
-            const ImVec2 c(x0 + cw * 0.5f + isz * 0.62f, y + pad + 4.f * d + 2.f * d);
-            dl->AddCircleFilled(c, 7.f * d, ImGui::ColorConvertFloat4ToU32(acc), 16);
-            const float nw = ImGui::GetFont()->CalcTextSizeA(fs * 0.9f, FLT_MAX, 0.f, nb).x;
-            dl->AddText(ImGui::GetFont(), fs * 0.9f, ImVec2(c.x - nw * 0.5f, c.y - fs * 0.45f), IM_COL32(255, 255, 255, 255), nb);
-        }
     }
 }
 
@@ -1694,12 +1685,7 @@ void drawUI() {
 
     const float barH = 60.f * d, navH = 62.f * d, navM = 12.f * d;
 
-    if (g_cur >= (int)g_tabs.size()) g_cur = 0;
-    if (g_waitFrames > 0 && --g_waitFrames == 0) g_waitPath.clear();
-    if (!g_waitPath.empty() && S.fmPath == g_waitPath) g_waitPath.clear();
-    if (g_tabs[g_cur].kind == 0 && g_waitPath.empty() && !S.fmPath.empty()) g_tabs[g_cur].path = S.fmPath;
-    if (S.tabReq >= 0) { selectTabKind(S.tabReq); S.tabReq = -1; }
-    S.curTab = g_tabs[g_cur].kind;
+    if (S.tabReq >= 0) { S.curTab = S.tabReq; S.apkOpen = false; S.tabReq = -1; }
 
     if (S.pvOpen) {
         ImGui::SetCursorPosY(10.f * d);
