@@ -180,7 +180,7 @@ Workflow `.github/workflows/release.yml` membangun APK **bertanda tangan** dan m
    base64 -w0 release.jks
    ```
 2. Tambahkan secrets repo: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
-3. Rilis: `git tag v1.1 && git push origin v1.1` (atau jalankan manual dari tab Actions).
+3. Rilis: `git tag v1.2 && git push origin v1.2` (atau jalankan manual dari tab Actions).
 
 `versionName` diambil dari nama tag, `versionCode` dari nomor run. Tag berisi `alpha`, `beta`, atau `rc`
 ditandai pre-release. Catatan rilis diambil dari bagian yang cocok di `CHANGELOG.md`.

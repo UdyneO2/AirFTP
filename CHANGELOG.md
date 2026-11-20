@@ -2,6 +2,14 @@
 
 Di dalam aplikasi, riwayat ini ada di Pengaturan > Riwayat perubahan.
 
+## v1.2 (20 Nov 2026)
+
+Dialog kaca.
+
+- Menu tekan-lama dan menu header jadi kaca transparan dengan blur asli (shader GL, dua pass di resolusi seperempat).
+- Dialog Android (input, konfirmasi, properti, pembaruan) memakai latar bulat setengah transparan; blur di belakang jendela aktif di Android 12 ke atas.
+- Tab Log dan terminal dihapus. Bar bawah sekarang empat tab: Lokal, Wi-Fi, FTP, Pengaturan.
+
 ## v1.1 (18 Nov 2026)
 
 Tampilan baru.

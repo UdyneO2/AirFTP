@@ -496,6 +496,10 @@ const Pair kEn[] = {
     {"FTP dua panel, file manager multi-tab, pratinjau gambar, arsip ZIP", "Two-pane FTP, multi-tab file manager, image preview, ZIP archives"},
     {"Pasang APK/XAPK/APKS/APKM, cadangkan aplikasi, akses Android/data lewat Shizuku", "Install APK/XAPK/APKS/APKM, back up apps, reach Android/data through Shizuku"},
     {"Tema terang dan gelap, Bahasa Indonesia dan Inggris", "Light and dark themes, Indonesian and English"},
+    {"Dialog kaca", "Glass dialogs"},
+    {"Menu dan dialog jadi kaca transparan dengan blur", "Menus and dialogs are now translucent glass with blur"},
+    {"Tab Log dan terminal dihapus, bar bawah kini empat tab", "The Log tab and terminal are gone, the bottom bar now has four tabs"},
+    {"Dialog input, konfirmasi, dan pembaruan mengikuti tema terang atau gelap", "Input, confirmation and update dialogs follow the light or dark theme"},
 };
 
 struct Table { const char* code; const char* name; const Pair* pairs; size_t n; };

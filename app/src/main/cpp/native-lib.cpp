@@ -22,7 +22,7 @@
 #include "i18n.h"
 
 namespace {
-constexpr const char* kVersion = "v1.1";
+constexpr const char* kVersion = "v1.2";
 
 std::string urlEncode(const std::string& in) {
     static const char* hex = "0123456789ABCDEF";
@@ -339,7 +339,11 @@ const std::vector<Rilis> kRilis = {
       "File manager punya mode daftar dan grid, folder biru, dan kolom cari",
       "Tab file manager jadi chip di bawah header; bilah aksi melayang untuk item terpilih",
       "Menu tekan-lama lebih bulat, tema gelap dirapikan",
-      "Ikon aplikasi baru"}}
+      "Ikon aplikasi baru"}},
+    {"v1.2", "Dialog kaca", "20 Nov 2026",
+     {"Menu dan dialog jadi kaca transparan dengan blur",
+      "Tab Log dan terminal dihapus, bar bawah kini empat tab",
+      "Dialog input, konfirmasi, dan pembaruan mengikuti tema terang atau gelap"}}
 };
 
 const std::vector<const char*> kBatasan = {

@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Tag versi rilis (contoh: v1.1)'
+        description: 'Tag versi rilis (contoh: v1.2)'
         required: true
-        default: 'v1.1'
+        default: 'v1.2'
 
 permissions:
   contents: write
