@@ -50,7 +50,6 @@ Tampilan dan pengaturan
 - [x] Cek pembaruan dari GitHub Release dengan catatan rilis, lalu pasang langsung
 - [x] Mode pasang APK: installer sistem atau Shizuku (senyap)
 - [x] Shizuku Legacy: jalur cadangan lewat Shizuku.Process bila bind service gagal
-- [x] Log dengan timestamp dan warna
 - [ ] Bahasa lain beraksara Latin (Spanyol, Jerman, dll.)
 - [ ] Bahasa beraksara non-Latin (butuh font tambahan)
 
@@ -81,7 +80,6 @@ Untuk sekarang hanya aksara Latin, karena font bawaan antarmuka belum memuat aks
 - [Shizuku](https://github.com/RikkaApps/Shizuku) dan Shizuku-API oleh RikkaApps, lisensi Apache 2.0. Dasar akses file tanpa root.
 - [ZXing](https://github.com/zxing/zxing) dan [zxing-android-embedded](https://github.com/journeyapps/zxing-android-embedded) oleh JourneyApps, lisensi Apache 2.0. Dipakai untuk pemindai QR.
 - [Source Sans 3](https://github.com/adobe-fonts/source-sans) oleh Adobe, lisensi SIL Open Font License 1.1 (berkas `app/src/main/assets/fonts/LICENSE-SourceSans3.txt`). Font antarmuka, dipakai tanpa diubah.
-- Font monospace sistem Android untuk tab Log.
 - Android NSD (mDNS) untuk menemukan perangkat, GitHub Releases API untuk cek pembaruan.
 - Gaya visual terinspirasi iOS: bar bawah melayang, kartu berkelompok.
 - Dibuat dan dirawat oleh [UdyneO2](https://github.com/UdyneO2).

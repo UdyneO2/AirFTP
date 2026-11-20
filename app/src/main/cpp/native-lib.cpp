@@ -50,8 +50,6 @@ struct State {
     bool shizukuFailed = false;
     std::string shizukuMsg = "Menunggu Shizuku...";
     std::deque<std::string> actions;
-    std::vector<std::string> logs;
-    bool logDirty = false;
     int curTab = 0;
     int tabReq = -1;
 
@@ -142,7 +140,6 @@ void applyTouchEvents() {
 }
 
 ImGuiContext* g_ctx = nullptr;
-ImFont* g_mono = nullptr;
 float g_density = 1.f;
 
 struct Pal { ImVec4 ok, warn, err, accent, dim, onAccent, panel, hoverRow, surface, bg, title, fill; ImU32 text, border, boxBg, surfaceU, bgU; } g_pal;
@@ -332,26 +329,6 @@ void progressBlock(bool busy, long long done, long long total, double speed, con
     double eta = speed > 1 ? (double)(total - done) / speed : -1;
     ImGui::Text("%s / %s | %s/s | ETA %s", fmtSize((double)done).c_str(), fmtSize((double)total).c_str(),
                 fmtSize(speed).c_str(), busy ? fmtEta(eta).c_str() : T("selesai"));
-}
-
-void drawTerminal(const char* id, float h) {
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.04f, 0.05f, 0.04f, 1.f));
-    ImGui::BeginChild(id, ImVec2(0, h), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar);
-    if (g_mono) ImGui::PushFont(g_mono);
-    for (auto& l : S.logs) {
-        const char* body = l.size() > 11 ? l.c_str() + 11 : l.c_str();
-        ImVec4 c(0.72f, 0.88f, 0.72f, 1.f);
-        if (!strncmp(body, "GAGAL", 5) || !strncmp(body, "ERR", 3)) c = ImVec4(1.f, 0.45f, 0.4f, 1.f);
-        else if (!strncmp(body, "OK", 2)) c = ImVec4(0.4f, 1.f, 0.5f, 1.f);
-        ImGui::PushStyleColor(ImGuiCol_Text, c);
-        ImGui::TextWrapped("%.11s%s", l.c_str(), i18n::tr(body).c_str());
-        ImGui::PopStyleColor();
-    }
-    if (g_mono) ImGui::PopFont();
-    if (S.logDirty) { ImGui::SetScrollHereY(1.f); S.logDirty = false; }
-    touchScroll();
-    ImGui::EndChild();
-    ImGui::PopStyleColor();
 }
 
 bool toggleSwitch(const char* id, bool on) {
@@ -1388,11 +1365,6 @@ void drawNet() {
 
     progressBlock(S.netBusy, S.netDone, S.netTotal, S.netSpeed, S.netCur);
 
-    Heading(T("Log terakhir"));
-    if (g_mono) ImGui::PushFont(g_mono);
-    size_t from = S.logs.size() > 5 ? S.logs.size() - 5 : 0;
-    for (size_t i = from; i < S.logs.size(); i++) ImGui::TextWrapped("%.11s%s", S.logs[i].c_str(), i18n::tr(S.logs[i].size() > 11 ? S.logs[i].c_str() + 11 : "").c_str());
-    if (g_mono) ImGui::PopFont();
     cardClose();
     ImGui::Dummy(ImVec2(0, 24.f * d));
 }
@@ -1782,7 +1754,7 @@ void drawPreview() {
     ImGui::EndChild();
 }
 
-enum Icon { IC_FOLDER, IC_WIFI, IC_PHONE, IC_GEAR, IC_LOG };
+enum Icon { IC_FOLDER, IC_WIFI, IC_PHONE, IC_GEAR };
 
 void drawIcon(ImDrawList* dl, Icon ic, ImVec2 c, float size, ImU32 col) {
     const float u = size / 24.f, th = std::max(1.4f, 1.7f * u);
@@ -1817,12 +1789,6 @@ void drawIcon(ImDrawList* dl, Icon ic, ImVec2 c, float size, ImU32 col) {
             }
             break;
         }
-        case IC_LOG:
-            dl->AddRect(P(5, 3), P(19, 21), col, 2.f * u, 0, th);
-            dl->AddLine(P(8.5f, 8), P(15.5f, 8), col, th);
-            dl->AddLine(P(8.5f, 12), P(15.5f, 12), col, th);
-            dl->AddLine(P(8.5f, 16), P(13, 16), col, th);
-            break;
     }
 }
 
@@ -1873,8 +1839,7 @@ void drawHeader(float h) {
         }
         case 1: title = "Wi-Fi"; break;
         case 2: title = "FTP"; break;
-        case 3: title = T("Pengaturan"); break;
-        default: title = "Log"; break;
+        default: title = T("Pengaturan"); break;
     }
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const float fs = ImGui::GetFontSize() * 1.15f;
@@ -1935,10 +1900,10 @@ void drawBottomBar(float y, float h) {
     dl->AddRectFilled(a, b, alphaU(g_pal.surfaceU, 246), h * 0.5f);
     dl->AddRect(a, b, g_pal.border, h * 0.5f, 0, 1.f);
     struct Tab { const char* label; Icon icon; };
-    const Tab tabs[5] = {{T("Lokal"), IC_FOLDER}, {"Wi-Fi", IC_WIFI}, {"FTP", IC_PHONE}, {T("Pengaturan"), IC_GEAR}, {"Log", IC_LOG}};
-    const float pad = 5.f * d, cw = (W - 2 * pad) / 5.f;
+    const Tab tabs[4] = {{T("Lokal"), IC_FOLDER}, {"Wi-Fi", IC_WIFI}, {"FTP", IC_PHONE}, {T("Pengaturan"), IC_GEAR}};
+    const float pad = 5.f * d, cw = (W - 2 * pad) / 4.f;
     const float isz = 22.f * d, fs = ImGui::GetFontSize() * 0.68f;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         const float x0 = a.x + pad + i * cw;
         const bool on = S.curTab == i;
         ImGui::SetCursorScreenPos(ImVec2(x0, y + pad));
@@ -2013,30 +1978,11 @@ void drawUI() {
                 ImGui::EndChild();
                 break;
             case 2: drawFtp(); break;
-            case 3:
+            default:
                 ImGui::BeginChild("t_set", ImVec2(0, 0), 0, ImGuiWindowFlags_NoScrollbar);
                 drawSettings();
                 touchScroll();
                 ImGui::EndChild();
-                break;
-            default:
-                {
-                    const float d2 = g_density;
-                    const ImVec2 q = ImGui::GetCursorScreenPos();
-                    const float W = ImGui::GetContentRegionAvail().x, h = 36.f * d2;
-                    ImDrawList* dl = ImGui::GetWindowDrawList();
-                    ImFont* bf = g_bold ? g_bold : ImGui::GetFont();
-                    char cnt[48];
-                    snprintf(cnt, sizeof cnt, "%d", (int)S.logs.size());
-                    dl->AddText(bf, ImGui::GetFontSize() * 1.05f, ImVec2(q.x + 6.f * d2, q.y + (h - ImGui::GetFontSize()) * 0.5f), g_pal.text, T("Aktivitas"));
-                    const float aw = ImGui::CalcTextSize(T("Bersihkan log")).x;
-                    ImGui::SetCursorScreenPos(ImVec2(q.x + W - aw - 20.f * d2, q.y));
-                    if (ImGui::InvisibleButton("##clr", ImVec2(aw + 20.f * d2, h))) S.logs.clear();
-                    dl->AddText(bf, ImGui::GetFontSize(), ImVec2(q.x + W - aw - 10.f * d2, q.y + (h - ImGui::GetFontSize()) * 0.5f), ImGui::ColorConvertFloat4ToU32(g_pal.accent), T("Bersihkan log"));
-                    ImGui::SetCursorScreenPos(ImVec2(q.x, q.y + h + 4.f * d2));
-                    (void)cnt;
-                }
-                drawTerminal("term_main", ImGui::GetContentRegionAvail().y);
                 break;
         }
         ImGui::EndChild();
@@ -2131,8 +2077,6 @@ JNIEXPORT void JNICALL Java_com_udyneos_airftp_Native_initGl(JNIEnv*, jclass, jf
         }
         if (!g_fontBold.empty()) g_bold = io.Fonts->AddFontFromMemoryTTF(g_fontBold.data(), (int)g_fontBold.size(), px, &fc);
 
-        const char* mono = "/system/fonts/DroidSansMono.ttf";
-        if (access(mono, R_OK) == 0) g_mono = io.Fonts->AddFontFromFileTTF(mono, 13.f * density);
     } else {
         ImGui_ImplOpenGL3_Shutdown();
     }
@@ -2202,18 +2146,7 @@ JNIEXPORT void JNICALL Java_com_udyneos_airftp_Native_setShizukuFailed(JNIEnv*, 
     S.shizukuFailed = f;
 }
 
-JNIEXPORT void JNICALL Java_com_udyneos_airftp_Native_log(JNIEnv* e, jclass, jstring msg) {
-    std::string m = js(e, msg);
-    time_t t = time(nullptr);
-    struct tm tmv;
-    localtime_r(&t, &tmv);
-    char ts[16];
-    strftime(ts, sizeof ts, "[%H:%M:%S] ", &tmv);
-    std::lock_guard<std::mutex> lk(S.mu);
-    S.logs.push_back(std::string(ts) + m);
-    if (S.logs.size() > 600) S.logs.erase(S.logs.begin(), S.logs.begin() + 100);
-    S.logDirty = true;
-}
+JNIEXPORT void JNICALL Java_com_udyneos_airftp_Native_log(JNIEnv*, jclass, jstring) {}
 
 JNIEXPORT jstring JNICALL Java_com_udyneos_airftp_Native_pollAction(JNIEnv* e, jclass) {
     std::lock_guard<std::mutex> lk(S.mu);
