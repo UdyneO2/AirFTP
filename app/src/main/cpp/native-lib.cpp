@@ -1992,7 +1992,7 @@ void drawHeader(float h) {
         if (headerButton("##hmore", ImVec2(W - m, cy), r, 1)) ImGui::OpenPopup("hdr_menu");
     }
     ImGui::SetNextWindowPos(ImVec2(W - 12.f * d, cy + r + 4.f * d), ImGuiCond_Always, ImVec2(1.f, 0.f));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f * d, 6.f * d));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.f * d, 10.f * d));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 2.f * d));
     ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 16.f * d);
     ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0, 0, 0, 0));
@@ -2003,30 +2003,44 @@ void drawHeader(float h) {
     if (hdrOpen) {
         const float w = 230.f * d;
         auto item = [&](const std::string& label, bool on = true, bool mark = false) {
+            const float h = 40.f * d;
+            const ImVec2 p = ImGui::GetCursorScreenPos();
             ImGui::BeginDisabled(!on);
-            const bool hit = ImGui::Selectable(label.c_str(), mark, 0, ImVec2(w, 40.f * d));
+            ImGui::PushID(label.c_str());
+            const bool hit = ImGui::InvisibleButton("##it", ImVec2(w, h));
+            const bool held = ImGui::IsItemActive();
+            ImGui::PopID();
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            if (mark || held) dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), alphaU(ImGui::ColorConvertFloat4ToU32(g_pal.accent), mark ? 46 : 30), 10.f * d);
+            dl->AddText(ImVec2(p.x + 14.f * d, p.y + (h - ImGui::GetFontSize()) * 0.5f), ImGui::GetColorU32(ImGuiCol_Text), label.c_str(), ImGui::FindRenderedTextEnd(label.c_str()));
             ImGui::EndDisabled();
             return hit;
+        };
+        auto rule = [&]() {
+            ImGui::Dummy(ImVec2(0, 4.f * d));
+            const ImVec2 p = ImGui::GetCursorScreenPos();
+            ImGui::GetWindowDrawList()->AddLine(ImVec2(p.x + 14.f * d, p.y), ImVec2(p.x + w - 14.f * d, p.y), g_pal.border);
+            ImGui::Dummy(ImVec2(0, 4.f * d));
         };
         const int nSel = countSel(S.fm);
         const bool all = nSel == (int)S.fm.size() && nSel > 0;
         if (item(std::string(g_grid ? T("Tampilan daftar") : T("Tampilan grid")) + "##mv")) g_grid = !g_grid;
         if (item(std::string(T("Tab baru")) + "##mt", g_fmTabs.size() < kMaxFmTabs)) fmNewTab();
         if (item(std::string(T("Tutup tab ini")) + "##mc", g_fmTabs.size() > 1)) fmCloseTab();
-        ImGui::Separator();
+        rule();
         if (item(std::string(T("Folder baru")) + "##m1", !S.mBusy)) act("FM|NEW");
         if (item(std::string(all ? T("Batal pilih") : T("Pilih semua")) + "##m2")) for (auto& e : S.fm) e.sel = !all;
         if (item(std::string(T("Segarkan")) + "##m3")) act("FM|REF");
         bool isBm = false;
         for (auto& b : S.bookmarks) if (b == S.fmPath) isBm = true;
         if (item(std::string(isBm ? T("Lepas sematan") : T("Sematkan folder ini")) + "##m4")) act("BM|" + S.fmPath);
-        ImGui::Separator();
+        rule();
         const char* sk[] = {T("Nama"), T("Ukuran"), T("Tanggal"), T("Jenis")};
         for (int k = 0; k < 4; k++) {
             std::string l = std::string(T("Urutkan")) + ": " + sk[k] + (S.fmSort == k ? (S.fmAsc ? "  ^" : "  v") : "") + "##s" + std::to_string(k);
             if (item(l, true, S.fmSort == k)) act("FM|SORT|" + std::to_string(k));
         }
-        ImGui::Separator();
+        rule();
         if (item("Backup APK##m5", S.shizuku)) { S.apkOpen = true; act("APK|OPEN"); }
         ImGui::EndPopup();
     }
