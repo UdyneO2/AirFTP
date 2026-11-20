@@ -191,6 +191,136 @@ void applyTheme(bool dark) {
     c[ImGuiCol_TextSelectedBg] = sel;
 }
 
+namespace blur {
+#ifndef AIRFTP_SOFT
+GLuint prog = 0, vao = 0, scene = 0, tex[2] = {0, 0}, fbo[2] = {0, 0};
+int sw = 0, sh = 0, tw = 0, th = 0;
+GLint uT = -1, uD = -1;
+bool ok = false, tried = false;
+
+GLuint compile(GLenum type, const char* src) {
+    GLuint sh = glCreateShader(type);
+    glShaderSource(sh, 1, &src, nullptr);
+    glCompileShader(sh);
+    GLint st = 0;
+    glGetShaderiv(sh, GL_COMPILE_STATUS, &st);
+    if (!st) { glDeleteShader(sh); return 0; }
+    return sh;
+}
+
+bool init() {
+    const char* vs = "#version 300 es\nout vec2 uv;\nvoid main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));uv=p;gl_Position=vec4(p*2.0-1.0,0.0,1.0);}\n";
+    const char* fs = "#version 300 es\nprecision mediump float;\nuniform sampler2D t;uniform vec2 d;in vec2 uv;out vec4 o;\n"
+                     "void main(){vec3 c=texture(t,uv).rgb*0.227027;"
+                     "c+=(texture(t,uv+d*1.3846).rgb+texture(t,uv-d*1.3846).rgb)*0.316216;"
+                     "c+=(texture(t,uv+d*3.2308).rgb+texture(t,uv-d*3.2308).rgb)*0.070270;o=vec4(c,1.0);}\n";
+    const GLuint v = compile(GL_VERTEX_SHADER, vs), f = compile(GL_FRAGMENT_SHADER, fs);
+    if (!v || !f) return false;
+    prog = glCreateProgram();
+    glAttachShader(prog, v);
+    glAttachShader(prog, f);
+    glLinkProgram(prog);
+    glDeleteShader(v);
+    glDeleteShader(f);
+    GLint st = 0;
+    glGetProgramiv(prog, GL_LINK_STATUS, &st);
+    if (!st) return false;
+    uT = glGetUniformLocation(prog, "t");
+    uD = glGetUniformLocation(prog, "d");
+    glGenVertexArrays(1, &vao);
+    glGenTextures(1, &scene);
+    glGenTextures(2, tex);
+    glGenFramebuffers(2, fbo);
+    return true;
+}
+
+void texSetup(GLuint t, int w, int h, bool rgb) {
+    glBindTexture(GL_TEXTURE_2D, t);
+    glTexImage2D(GL_TEXTURE_2D, 0, rgb ? GL_RGB : GL_RGBA, w, h, 0, rgb ? GL_RGB : GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+}
+
+void resize(int w, int h) {
+    if (w == sw && h == sh) return;
+    sw = w; sh = h;
+    tw = std::max(16, w / 4); th = std::max(16, h / 4);
+    texSetup(scene, sw, sh, true);
+    for (int i = 0; i < 2; i++) {
+        texSetup(tex[i], tw, th, false);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo[i]);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex[i], 0);
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void pass(GLuint src, int dst, float dx, float dy, int w, int h) {
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo[dst]);
+    glViewport(0, 0, w, h);
+    glBindTexture(GL_TEXTURE_2D, src);
+    glUniform2f(uD, dx, dy);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+}
+
+void cb(const ImDrawList*, const ImDrawCmd*) {
+    if (!tried) { tried = true; ok = init(); }
+    if (!ok) return;
+    const ImVec2 ds = ImGui::GetIO().DisplaySize;
+    const int w = (int)ds.x, h = (int)ds.y;
+    if (w < 16 || h < 16) return;
+    resize(w, h);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, scene);
+    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0, w, h, 0);
+    glDisable(GL_BLEND);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_DEPTH_TEST);
+    glUseProgram(prog);
+    glUniform1i(uT, 0);
+    glBindVertexArray(vao);
+    pass(scene, 0, 2.f / (float)sw, 0.f, tw, th);
+    pass(tex[0], 1, 0.f, 1.f / (float)th, tw, th);
+    pass(tex[1], 0, 1.f / (float)tw, 0.f, tw, th);
+    pass(tex[0], 1, 0.f, 1.f / (float)th, tw, th);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, w, h);
+}
+
+ImTextureID id() { return (ImTextureID)(intptr_t)tex[1]; }
+bool ready() { return ok || !tried; }
+#else
+void cb(const ImDrawList*, const ImDrawCmd*) {}
+ImTextureID id() { return (ImTextureID)(intptr_t)778; }
+bool ready() { return true; }
+#endif
+}
+
+void glassBegin() {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->AddCallback(blur::cb, nullptr);
+    dl->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
+}
+
+void glassFill(float rounding) {
+    const float d = g_density;
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const ImVec2 a = ImGui::GetWindowPos(), sz = ImGui::GetWindowSize(), b(a.x + sz.x, a.y + sz.y);
+    const ImVec2 ds = ImGui::GetIO().DisplaySize;
+    const bool dark = S.dark;
+    const ImU32 tint = dark ? IM_COL32(28, 28, 30, 150) : IM_COL32(255, 255, 255, 165);
+    glassBegin();
+    if (blur::ready())
+        dl->AddImageRounded(blur::id(), a, b, ImVec2(a.x / ds.x, 1.f - a.y / ds.y), ImVec2(b.x / ds.x, 1.f - b.y / ds.y), IM_COL32_WHITE, rounding);
+    else
+        dl->AddRectFilled(a, b, dark ? IM_COL32(28, 28, 30, 235) : IM_COL32(255, 255, 255, 235), rounding);
+    dl->AddRectFilled(a, b, tint, rounding);
+    dl->AddRect(a, b, dark ? IM_COL32(255, 255, 255, 36) : IM_COL32(255, 255, 255, 170), rounding, 0, 1.f * d);
+}
+
 struct Rilis {
     const char* ver;
     const char* judul;
@@ -781,8 +911,12 @@ void fmContextMenu(bool busy) {
     ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.f, 0.5f));
     ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1.f);
     ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 16.f * d);
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
     const bool open = ImGui::BeginPopup("fm_ctx");
+    ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(5);
+    if (open) glassFill(16.f * d);
     g_ctxOpen = open;
     if (!open) return;
     if (g_ctxClose.exchange(false) || busy || it.empty()) { ImGui::CloseCurrentPopup(); ImGui::EndPopup(); return; }
@@ -1857,7 +1991,12 @@ void drawHeader(float h) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f * d, 6.f * d));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 2.f * d));
     ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 16.f * d);
-    if (ImGui::BeginPopup("hdr_menu")) {
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+    const bool hdrOpen = ImGui::BeginPopup("hdr_menu");
+    ImGui::PopStyleColor(2);
+    if (hdrOpen) glassFill(16.f * d);
+    if (hdrOpen) {
         const float w = 230.f * d;
         auto item = [&](const std::string& label, bool on = true, bool mark = false) {
             ImGui::BeginDisabled(!on);

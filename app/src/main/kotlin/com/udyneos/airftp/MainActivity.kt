@@ -924,7 +924,7 @@ class MainActivity : Activity() {
             .setView(box)
             .setPositiveButton("OK") { _, _ -> onOk(et.text.toString().trim()) }
             .setNegativeButton(tr("Batal"), null)
-            .show()
+            .showGlass(dark)
     }
 
     private fun joinPath(dir: String, name: String) = if (dir.endsWith("/")) dir + name else "$dir/$name"
@@ -1089,7 +1089,7 @@ class MainActivity : Activity() {
     private fun confirm(title: String, msg: String, yes: String, onYes: () -> Unit) = runOnUiThread {
         AlertDialog.Builder(this).setTitle(tr(title)).setMessage(tr(msg))
             .setPositiveButton(tr(yes)) { _, _ -> onYes() }
-            .setNegativeButton(tr("Batal"), null).show()
+            .setNegativeButton(tr("Batal"), null).showGlass(dark)
     }
 
     private fun fmt(b: Long): String {
@@ -1454,7 +1454,7 @@ class MainActivity : Activity() {
             .setMessage(tr("Terpasang") + ": ${BuildConfig.VERSION_NAME}\n" + tr("Ukuran unduhan") + "${mb}, " + tr(via) + ".\n\n" + tr("Yang baru") + ":\n$notes")
             .setPositiveButton(tr("Perbarui")) { _, _ -> downloadAndInstall(r) }
             .setNegativeButton(tr("Nanti"), null)
-            .show()
+            .showGlass(dark)
     }
 
     private fun downloadAndInstall(r: Updater.Release) {
@@ -1466,7 +1466,7 @@ class MainActivity : Activity() {
         }
         val stop = java.util.concurrent.atomic.AtomicBoolean(false)
         val dlg = AlertDialog.Builder(this).setTitle(tr("Memperbarui ke ${r.tag}")).setView(box)
-            .setCancelable(false).setNegativeButton(tr("Batal")) { _, _ -> stop.set(true) }.show()
+            .setCancelable(false).setNegativeButton(tr("Batal")) { _, _ -> stop.set(true) }.showGlass(dark)
         Thread {
             try {
                 val root = ShareProvider.root(this)
@@ -1572,7 +1572,7 @@ class MainActivity : Activity() {
                     msg.append("${sel.size} item (${sel.count { it.isDir }} folder)\n" + tr("Lokasi") + ": $fmPath\n" + tr("Total ukuran") + ": ${fmt(total)}")
                 }
             } catch (t: Throwable) { msg.append(tr("Gagal membaca properti: ${t.message}")) }
-            runOnUiThread { AlertDialog.Builder(this).setTitle(tr("Properti")).setMessage(msg.toString()).setPositiveButton("OK", null).show() }
+            runOnUiThread { AlertDialog.Builder(this).setTitle(tr("Properti")).setMessage(msg.toString()).setPositiveButton("OK", null).showGlass(dark) }
         }
     }
 
